@@ -8,7 +8,10 @@ export default async function AccountingPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Fetch P&L Summary
+  const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single()
+  const currencySymbol = settings?.currency_symbol || 'Rs.'
+
+  // Fetch PL dataSummary
   const { data: plData } = await supabase
     .from('pl_summary_view')
     .select('*')
@@ -43,22 +46,22 @@ export default async function AccountingPage() {
           Current Period P&L
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 className="text-sm font-medium text-gray-500 mb-1">Total Revenue</h3>
-            <p className="text-3xl font-bold text-green-600">Rs. {Number(plData?.total_revenue || 0).toFixed(2)}</p>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 className="text-sm font-medium text-gray-500 mb-1">COGS (Cost of Goods)</h3>
-            <p className="text-3xl font-bold text-red-600">Rs. {Number(plData?.total_cogs || 0).toFixed(2)}</p>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 className="text-sm font-medium text-gray-500 mb-1">Operating Expenses</h3>
-            <p className="text-3xl font-bold text-red-600">Rs. {Number(plData?.operating_expenses || 0).toFixed(2)}</p>
-          </div>
-          <div className="bg-gray-900 p-6 rounded-xl shadow-sm border border-gray-800">
-            <h3 className="text-sm font-medium text-gray-400 mb-1">Net Profit</h3>
-            <p className="text-3xl font-bold text-white">Rs. {Number(plData?.net_profit || 0).toFixed(2)}</p>
-          </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+          <p className="text-gray-500 text-sm font-medium mb-1">Total Revenue</p>
+          <p className="text-3xl font-bold text-green-600">{currencySymbol} {Number(plData?.total_revenue || 0).toFixed(2)}</p>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+          <p className="text-gray-500 text-sm font-medium mb-1">Cost of Goods Sold (COGS)</p>
+          <p className="text-3xl font-bold text-red-600">{currencySymbol} {Number(plData?.total_cogs || 0).toFixed(2)}</p>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+          <p className="text-gray-500 text-sm font-medium mb-1">Operating Expenses</p>
+          <p className="text-3xl font-bold text-red-600">{currencySymbol} {Number(plData?.operating_expenses || 0).toFixed(2)}</p>
+        </div>
+        <div className="bg-gray-900 p-6 rounded-2xl shadow-sm">
+          <p className="text-gray-400 text-sm font-medium mb-1">Net Profit</p>
+          <p className="text-3xl font-bold text-white">{currencySymbol} {Number(plData?.net_profit || 0).toFixed(2)}</p>
+        </div>
         </div>
       </div>
 
@@ -75,6 +78,7 @@ export default async function AccountingPage() {
                 <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm uppercase tracking-wider">
                   <th className="p-4 font-semibold">Shift Opened</th>
                   <th className="p-4 font-semibold">Shift Closed</th>
+                  <th className="p-4 font-semibold">Staff</th>
                   <th className="p-4 font-semibold text-right">Starting Cash</th>
                   <th className="p-4 font-semibold text-right">Cash Received</th>
                   <th className="p-4 font-semibold text-right">Total Sales</th>
@@ -83,20 +87,19 @@ export default async function AccountingPage() {
               </thead>
               <tbody className="divide-y divide-gray-200 text-gray-700">
                 {zReports?.map((report) => (
-                  <tr key={report.shift_id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-4 text-sm font-medium">{new Date(report.opened_at).toLocaleString()}</td>
-                    <td className="p-4 text-sm text-gray-500">
-                      {report.closed_at ? new Date(report.closed_at).toLocaleString() : <span className="text-orange-500 font-medium">Active</span>}
-                    </td>
-                    <td className="p-4 text-sm text-right">Rs. {Number(report.starting_cash).toFixed(2)}</td>
-                    <td className="p-4 text-sm text-right text-green-600 font-medium">Rs. {Number(report.total_cash_received).toFixed(2)}</td>
-                    <td className="p-4 text-sm text-right font-bold text-gray-900">Rs. {Number(report.total_sales).toFixed(2)}</td>
+                  <tr key={report.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-4 text-sm text-gray-500">{new Date(report.opened_at).toLocaleString()}</td>
+                    <td className="p-4 text-sm text-gray-500">{report.closed_at ? new Date(report.closed_at).toLocaleString() : 'Active'}</td>
+                    <td className="p-4 text-sm text-gray-900">{report.profiles?.first_name || 'Unknown'}</td>
+                    <td className="p-4 text-sm text-right">{currencySymbol} {Number(report.starting_cash).toFixed(2)}</td>
+                    <td className="p-4 text-sm text-right text-green-600 font-medium">{currencySymbol} {Number(report.total_cash_received).toFixed(2)}</td>
+                    <td className="p-4 text-sm text-right font-bold text-gray-900">{currencySymbol} {Number(report.total_sales).toFixed(2)}</td>
                     <td className="p-4 text-sm text-right">{report.total_orders}</td>
                   </tr>
                 ))}
                 {(!zReports || zReports.length === 0) && (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-gray-500">
+                    <td colSpan={7} className="p-8 text-center text-gray-500">
                       No shift records found. Open a shift in the POS to generate a Z-Report.
                     </td>
                   </tr>

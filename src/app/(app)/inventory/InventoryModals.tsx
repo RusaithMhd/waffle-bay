@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createIngredient, updateIngredient } from '@/app/actions/inventory'
 import { X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useSettings } from '@/components/SettingsProvider'
 
 interface ModalProps {
   onClose: () => void
@@ -11,6 +12,7 @@ interface ModalProps {
 
 export function AddIngredientModal({ onClose }: ModalProps) {
   const router = useRouter()
+  const settings = useSettings()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -90,7 +92,7 @@ export function AddIngredientModal({ onClose }: ModalProps) {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Cost per Unit (Rs.)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Cost per Unit ({settings.currency_symbol})</label>
             <input 
               required
               type="number"
@@ -126,6 +128,7 @@ interface EditModalProps extends ModalProps {
 
 export function EditIngredientModal({ onClose, item }: EditModalProps) {
   const router = useRouter()
+  const settings = useSettings()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -203,7 +206,7 @@ export function EditIngredientModal({ onClose, item }: EditModalProps) {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Cost per Unit (Rs.)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Cost per Unit ({settings.currency_symbol})</label>
             <input 
               required
               type="number"
