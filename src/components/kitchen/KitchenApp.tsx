@@ -13,7 +13,7 @@ type ConnectionStatus = 'ONLINE' | 'OFFLINE' | 'SYNCING'
 
 // ── KitchenApp ────────────────────────────────────────────────────────────────
 
-export function KitchenApp() {
+export function KitchenApp({ userRole }: { userRole?: string }) {
   const supabase                                = createClient()
   const [orders, setOrders]                     = useState<KOTData[]>([])
   const [loading, setLoading]                   = useState(true)
@@ -22,6 +22,7 @@ export function KitchenApp() {
   const [updatingIds, setUpdatingIds]           = useState<Set<string>>(new Set())
   const [newOrderId, setNewOrderId]             = useState<string | null>(null)   // for new-order flash
   const [now, setNow]                           = useState(Date.now())             // single global timer tick
+  const [selectedDate, setSelectedDate]         = useState(new Date().toISOString().split('T')[0])
   const prevOrderIdsRef                         = useRef<Set<string>>(new Set())
 
   // ── Single global 1s timer ──────────────────────────────────────────────────
@@ -32,24 +33,38 @@ export function KitchenApp() {
 
   // ── Fetch orders ────────────────────────────────────────────────────────────
   const fetchOrders = useCallback(async () => {
-    const { data, error } = await supabase
+    const selectQuery = `
+      id, order_number, fulfillment_status, created_at,
+      order_items (
+        id, product_name_snapshot, quantity, fulfillment_status,
+        order_item_modifiers ( modifier_name_snapshot )
+      )
+    `
+
+    const activeQuery = supabase
       .from('orders')
-      .select(`
-        id, order_number, fulfillment_status, created_at,
-        order_items (
-          id, product_name_snapshot, quantity, fulfillment_status,
-          order_item_modifiers ( modifier_name_snapshot )
-        )
-      `)
+      .select(selectQuery)
       .in('fulfillment_status', ['NEW', 'PREPARING', 'READY'])
       .order('created_at', { ascending: true })
 
-    if (error) {
-      console.error('[Kitchen] fetch error:', error)
+    const completedQuery = supabase
+      .from('orders')
+      .select(selectQuery)
+      .eq('fulfillment_status', 'COMPLETED')
+      .gte('created_at', `${selectedDate}T00:00:00Z`)
+      .lte('created_at', `${selectedDate}T23:59:59.999Z`)
+      .order('created_at', { ascending: false })
+
+    const [activeRes, completedRes] = await Promise.all([activeQuery, completedQuery])
+
+    if (activeRes.error || completedRes.error) {
+      console.error('[Kitchen] fetch error:', activeRes.error || completedRes.error)
       return
     }
 
-    const mapped: KOTData[] = (data as any[]).map(o => ({
+    const allData = [...(activeRes.data || []), ...(completedRes.data || [])]
+
+    const mapped: KOTData[] = allData.map(o => ({
       id:                 o.id,
       order_number:       o.order_number,
       fulfillment_status: o.fulfillment_status,
@@ -76,7 +91,7 @@ export function KitchenApp() {
 
     setOrders(mapped)
     setLoading(false)
-  }, [supabase])
+  }, [supabase, selectedDate])
 
   // ── Realtime subscription ───────────────────────────────────────────────────
   useEffect(() => {
@@ -156,19 +171,20 @@ export function KitchenApp() {
 
   // ── Derived state ───────────────────────────────────────────────────────────
   const counts = {
-    ALL:       orders.length,
+    ALL:       orders.filter(o => o.fulfillment_status !== 'COMPLETED').length,
     NEW:       orders.filter(o => o.fulfillment_status === 'NEW').length,
     PREPARING: orders.filter(o => o.fulfillment_status === 'PREPARING').length,
     READY:     orders.filter(o => o.fulfillment_status === 'READY').length,
+    COMPLETED: orders.filter(o => o.fulfillment_status === 'COMPLETED').length,
   }
 
   const visibleOrders = filter === 'ALL'
-    ? orders
+    ? orders.filter(o => o.fulfillment_status !== 'COMPLETED')
     : orders.filter(o => o.fulfillment_status === filter)
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full bg-[#0D1117] overflow-hidden">
+    <div className="flex flex-col h-full bg-gradient-to-br from-orange-50 via-[#F8FAFC] to-orange-100 overflow-hidden text-slate-900">
 
       {/* Header */}
       <KitchenHeader
@@ -182,6 +198,8 @@ export function KitchenApp() {
         activeFilter={filter}
         counts={counts}
         onFilterChange={setFilter}
+        selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
       />
 
       {/* New Order Flash Banner */}
@@ -207,7 +225,7 @@ export function KitchenApp() {
             <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
               <CheckCircle2 className="w-10 h-10 text-emerald-500" />
             </div>
-            <h2 className="text-[20px] font-black text-white mb-1">
+            <h2 className="text-[20px] font-black text-slate-900 mb-1">
               {filter === 'ALL' ? 'All Orders Clear!' : `No ${filter} Orders`}
             </h2>
             <p className="text-[#6B7280] text-[14px]">
@@ -232,6 +250,7 @@ export function KitchenApp() {
                 onUpdateStatus={handleUpdateStatus}
                 onToggleItem={handleToggleItem}
                 isUpdating={updatingIds.has(order.id)}
+                readOnly={userRole === 'cashier'}
               />
             ))}
           </div>

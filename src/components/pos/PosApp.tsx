@@ -239,6 +239,8 @@ export function PosApp({
                       <CloseShiftButton className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center" />
                     </div>
                   )}
+                  <div className="h-px bg-[#E5E7EB] my-1" />
+                  <Link href="/kitchen" className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors block">Kitchen Display (KOT)</Link>
                   {userRole !== 'cashier' && (
                     <>
                       <div className="h-px bg-[#E5E7EB] my-1" />

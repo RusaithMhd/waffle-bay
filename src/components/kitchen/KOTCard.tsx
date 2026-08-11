@@ -28,6 +28,7 @@ interface KOTCardProps {
   onUpdateStatus: (orderId: string, status: OrderStatus) => Promise<void>
   onToggleItem:   (itemId: string, current: ItemStatus)  => Promise<void>
   isUpdating: boolean
+  readOnly?: boolean
 }
 
 // ── Elapsed time helpers ──────────────────────────────────────────────────────
@@ -44,35 +45,35 @@ function formatElapsed(secs: number): string {
 }
 
 function getUrgencyClass(secs: number): { timer: string; ring: string } {
-  if (secs >= 600) return { timer: 'text-red-400 font-black', ring: 'border-red-500/60' }
-  if (secs >= 300) return { timer: 'text-amber-400 font-black', ring: 'border-amber-500/60' }
-  return { timer: 'text-[#9CA3AF] font-semibold', ring: 'border-[#374151]' }
+  if (secs >= 600) return { timer: 'text-red-600 font-black', ring: 'border-red-400' }
+  if (secs >= 300) return { timer: 'text-amber-600 font-black', ring: 'border-amber-400' }
+  return { timer: 'text-slate-500 font-semibold', ring: 'border-white/60' }
 }
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
   NEW: {
-    badge: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'NEW' },
-    button: { bg: 'bg-blue-500 hover:bg-blue-400', text: 'text-white', label: 'START COOKING', next: 'PREPARING' as OrderStatus },
+    badge: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'NEW' },
+    button: { bg: 'bg-blue-500 hover:bg-blue-600', text: 'text-white', label: 'START COOKING', next: 'PREPARING' as OrderStatus },
   },
   PREPARING: {
-    badge: { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'PREPARING' },
-    button: { bg: 'bg-amber-500 hover:bg-amber-400', text: 'text-white', label: 'MARK READY', next: 'READY' as OrderStatus },
+    badge: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'PREPARING' },
+    button: { bg: 'bg-amber-500 hover:bg-amber-600', text: 'text-white', label: 'MARK READY', next: 'READY' as OrderStatus },
   },
   READY: {
-    badge: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'READY ✓' },
-    button: { bg: 'bg-emerald-500 hover:bg-emerald-400', text: 'text-white', label: 'COMPLETE ORDER', next: 'COMPLETED' as OrderStatus },
+    badge: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'READY ✓' },
+    button: { bg: 'bg-emerald-500 hover:bg-emerald-600', text: 'text-white', label: 'COMPLETE ORDER', next: 'COMPLETED' as OrderStatus },
   },
   COMPLETED: {
-    badge: { bg: 'bg-[#374151]', text: 'text-[#9CA3AF]', label: 'DONE' },
+    badge: { bg: 'bg-slate-200', text: 'text-slate-500', label: 'DONE' },
     button: { bg: '', text: '', label: '', next: 'COMPLETED' as OrderStatus },
   },
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating }: KOTCardProps) {
+export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, readOnly = false }: KOTCardProps) {
   const cfg    = STATUS_CONFIG[order.fulfillment_status]
   const secs   = getElapsedSeconds(order.created_at, now)
   const urg    = getUrgencyClass(secs)
@@ -84,33 +85,33 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating }
   }
 
   return (
-    <div className={`flex flex-col rounded-2xl border-2 overflow-hidden bg-[#1F2937] shadow-lg transition-all ${urg.ring} ${isReady ? 'border-emerald-500/60' : ''}`}>
+    <div className={`flex flex-col rounded-2xl border border-white/60 overflow-hidden bg-white/70 backdrop-blur-md shadow-sm transition-all ${urg.ring} ${isReady ? 'border-emerald-300' : ''}`}>
 
       {/* ── Card Header ── */}
-      <div className={`px-4 py-3 flex items-center justify-between shrink-0 ${isReady ? 'bg-emerald-500/10' : 'bg-[#111827]/60'}`}>
+      <div className={`px-4 py-3 flex items-center justify-between shrink-0 border-b border-white/40 ${isReady ? 'bg-emerald-50/80' : 'bg-white/40'}`}>
         <div>
           <div className="flex items-center space-x-2">
-            <span className="text-white font-black text-[22px] leading-none tracking-tight">#{order.order_number}</span>
+            <span className="text-slate-900 font-black text-[22px] leading-none tracking-tight">#{order.order_number}</span>
             <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${cfg.badge.bg} ${cfg.badge.text}`}>
               {cfg.badge.label}
             </span>
           </div>
           <div className="flex items-center space-x-2 mt-1">
-            <span className="text-[11px] text-[#6B7280]">
+            <span className="text-[11px] text-slate-500 font-semibold">
               {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
-            <span className="text-[#374151]">·</span>
-            <span className={`text-[13px] tabular-nums ${urg.timer}`}>
+            <span className="text-slate-300">·</span>
+            <span className={`text-[13px] font-bold tabular-nums ${urg.timer}`}>
               {formatElapsed(secs)}
             </span>
-            {secs >= 600 && <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">OVERDUE</span>}
-            {secs >= 300 && secs < 600 && <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">SLOW</span>}
+            {secs >= 600 && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">OVERDUE</span>}
+            {secs >= 300 && secs < 600 && <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">SLOW</span>}
           </div>
         </div>
 
-        {/* Order type badge — shows DINE IN by default since order type isn't in current DB */}
+        {/* Order type badge */}
         <div className="flex flex-col items-end">
-          <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider">DINE IN</span>
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-white/60 px-2 py-1 rounded-md border border-white/50 shadow-sm">DINE IN</span>
         </div>
       </div>
 
@@ -119,11 +120,12 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating }
         {order.items.map(item => (
           <button
             key={item.id}
-            onClick={() => onToggleItem(item.id, item.fulfillment_status)}
-            className={`w-full text-left px-3 py-3 rounded-xl border transition-all active:scale-[0.98] ${
+            onClick={() => readOnly ? null : onToggleItem(item.id, item.fulfillment_status)}
+            disabled={readOnly}
+            className={`w-full text-left px-3 py-3 rounded-xl border transition-all ${!readOnly ? 'active:scale-[0.98]' : 'cursor-default'} ${
               item.fulfillment_status === 'DONE'
-                ? 'bg-[#111827]/40 border-[#374151]/50 opacity-60'
-                : 'bg-[#111827] border-[#374151] hover:border-[#4B5563]'
+                ? 'bg-slate-50/50 border-slate-200/50 opacity-60'
+                : 'bg-white/80 border-slate-200/60 shadow-sm hover:border-slate-300'
             }`}
           >
             <div className="flex items-start justify-between gap-2">
@@ -132,7 +134,7 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating }
                 <div className="flex items-baseline space-x-2">
                   <span className="text-[#FF6500] font-black text-[15px] shrink-0">{item.quantity}×</span>
                   <span className={`font-bold text-[15px] leading-tight ${
-                    item.fulfillment_status === 'DONE' ? 'line-through text-[#6B7280]' : 'text-white'
+                    item.fulfillment_status === 'DONE' ? 'line-through text-slate-400' : 'text-slate-800'
                   }`}>
                     {item.product_name_snapshot}
                   </span>
@@ -141,8 +143,8 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating }
                 {item.modifiers.length > 0 && (
                   <div className="mt-1.5 pl-7 space-y-0.5">
                     {item.modifiers.map((mod, i) => (
-                      <div key={i} className={`text-[12px] ${
-                        item.fulfillment_status === 'DONE' ? 'line-through text-[#4B5563]' : 'text-[#9CA3AF]'
+                      <div key={i} className={`text-[12px] font-medium ${
+                        item.fulfillment_status === 'DONE' ? 'line-through text-slate-400' : 'text-slate-500'
                       }`}>
                         <span className="text-[#FF6500] mr-1">+</span>{mod.modifier_name_snapshot}
                       </div>
@@ -154,7 +156,7 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating }
               <div className="shrink-0 mt-0.5">
                 {item.fulfillment_status === 'DONE'
                   ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                  : <Circle className="w-5 h-5 text-[#4B5563]" />
+                  : <Circle className="w-5 h-5 text-slate-300" />
                 }
               </div>
             </div>
@@ -163,12 +165,12 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating }
       </div>
 
       {/* ── Primary Action ── */}
-      {order.fulfillment_status !== 'COMPLETED' && (
-        <div className="p-3 shrink-0 border-t border-[#374151]/50">
+      {!readOnly && order.fulfillment_status !== 'COMPLETED' && (
+        <div className="p-3 shrink-0 border-t border-white/50 bg-white/40">
           <button
             onClick={handleAction}
             disabled={isUpdating}
-            className={`w-full py-4 rounded-xl font-black text-[15px] tracking-wide transition-all active:scale-[0.98] flex items-center justify-center space-x-2 disabled:opacity-60 disabled:cursor-not-allowed ${cfg.button.bg} ${cfg.button.text}`}
+            className={`w-full py-4 rounded-xl font-black text-[15px] tracking-wide transition-all active:scale-[0.98] flex items-center justify-center space-x-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed ${cfg.button.bg} ${cfg.button.text} ${order.fulfillment_status === 'NEW' ? 'hover:bg-[#e65a00]' : ''}`}
           >
             {isUpdating
               ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Updating...</span></>

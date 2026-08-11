@@ -37,6 +37,13 @@ const calculateItemTotal = (product: Product, modifiers: Modifier[], quantity: n
   return (basePrice + modsPrice) * quantity
 }
 
+const areModifiersEqual = (modsA: Modifier[], modsB: Modifier[]) => {
+  if (modsA.length !== modsB.length) return false
+  const idsA = [...modsA].map(m => m.id).sort()
+  const idsB = [...modsB].map(m => m.id).sort()
+  return idsA.every((id, i) => id === idsB[i])
+}
+
 export const usePosStore = create<PosState>((set, get) => ({
   cart: [],
   discountPercent: 0,
@@ -47,6 +54,23 @@ export const usePosStore = create<PosState>((set, get) => ({
 
   addToCart: (product, modifiers, quantity) => {
     set((state) => {
+      const existingItemIndex = state.cart.findIndex(
+        (item) => item.product.id === product.id && areModifiersEqual(item.modifiers, modifiers)
+      )
+
+      if (existingItemIndex !== -1) {
+        // Increase quantity of existing identical item
+        const newCart = [...state.cart]
+        const existingItem = newCart[existingItemIndex]
+        const newQuantity = existingItem.quantity + quantity
+        newCart[existingItemIndex] = {
+          ...existingItem,
+          quantity: newQuantity,
+          itemTotal: calculateItemTotal(product, modifiers, newQuantity)
+        }
+        return { cart: newCart }
+      }
+
       const newItem: CartItem = {
         id: Date.now().toString() + Math.random().toString(36).substring(7),
         product,
