@@ -9,6 +9,9 @@ export default async function ProductsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single()
+  const currencySymbol = settings?.currency_symbol || 'Rs.'
+
   // Fetch products and categories
   const { data: products } = await supabase
     .from('products')
@@ -53,7 +56,7 @@ export default async function ProductsPage() {
                     {/* @ts-ignore - Supabase type narrowing */}
                     {item.category?.name || 'Uncategorized'}
                   </td>
-                  <td className="p-4 text-sm">Rs. {Number(item.base_price).toFixed(2)}</td>
+                  <td className="p-4 text-sm">{currencySymbol} {Number(item.base_price).toFixed(2)}</td>
                   <td className="p-4 text-center">
                     {item.is_active ? (
                       <span className="inline-flex items-center text-green-600 space-x-1 text-sm font-medium">

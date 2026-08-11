@@ -10,7 +10,10 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Get Today's Sales & Orders
+  const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single()
+  const currencySymbol = settings?.currency_symbol || 'Rs.'
+
+  // Simple query for demo purposes & Orders
   const today = new Date()
   today.setHours(0,0,0,0)
 
@@ -45,9 +48,9 @@ export default async function DashboardPage() {
             <div className="p-2 bg-green-100 rounded-lg">
               <DollarSign className="w-6 h-6 text-green-600" />
             </div>
-            <h3 className="text-lg font-medium text-gray-600">Today's Sales</h3>
+            <p className="text-sm text-gray-500 font-medium mb-1">Today's Revenue</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">Rs. {totalSales.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-gray-900">{currencySymbol} {totalSales.toFixed(2)}</p>
         </div>
 
         {/* Total Orders */}

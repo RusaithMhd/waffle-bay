@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { X, DollarSign, CreditCard, QrCode, Building, CheckCircle2 } from 'lucide-react'
+import { X, CreditCard, Banknote, HelpCircle, QrCode, Building, CheckCircle2, DollarSign } from 'lucide-react'
 import { usePosStore } from '@/stores/usePosStore'
+import { useSettings } from '@/components/SettingsProvider'
 import { processCheckout, CheckoutPayload } from '@/app/actions/checkout'
 import { db } from '@/lib/db'
 
@@ -20,6 +21,7 @@ interface PaymentModalProps {
 
 export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
   const { cart, getSubtotal, getTaxAmount, getDiscountAmount, getTotal, clearCart } = usePosStore()
+  const settings = useSettings()
   const total = getTotal()
 
   const [payments, setPayments] = useState<PaymentEntry[]>([])
@@ -38,6 +40,10 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
     if (amount <= 0) return
     setPayments([...payments, { method: activeMethod, amount }])
     setCurrentInput('')
+  }
+
+  const removePayment = (index: number) => {
+    setPayments(payments.filter((_, i) => i !== index))
   }
 
   const handleCheckout = async () => {
@@ -97,7 +103,6 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
         setError(res.error || 'Checkout failed')
       }
     } catch (err: any) {
-      // Offline fallback
       setIsProcessing(false)
       await db.syncOutbox.add({
         payload,
@@ -132,7 +137,6 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
         
-        {/* Left Side: Order Summary & Payments */}
         <div className="flex-1 border-r bg-gray-50 flex flex-col">
           <div className="p-6 border-b bg-white flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-900">Payment</h2>
@@ -140,43 +144,47 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
           </div>
           
           <div className="p-6 flex-1 overflow-y-auto">
-            <div className="bg-white rounded-2xl p-6 shadow-sm mb-6 text-center">
-              <p className="text-gray-500 font-medium mb-1">Total Due</p>
-              <p className="text-4xl font-bold text-gray-900">Rs. {total.toFixed(2)}</p>
+            <div className="bg-orange-50 p-6 flex flex-col items-center justify-center rounded-2xl mb-6">
+              <p className="text-orange-600 font-semibold mb-1">Total Amount</p>
+              <p className="text-4xl font-bold text-gray-900">{settings.currency_symbol} {total.toFixed(2)}</p>
             </div>
 
-            {payments.length > 0 && (
-              <div className="mb-6 space-y-3">
-                <h3 className="font-bold text-gray-700">Applied Payments</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">Payments Applied</h3>
+            {payments.length === 0 ? (
+              <p className="text-gray-500 text-sm">No payments added yet.</p>
+            ) : (
+              <div className="space-y-3 mb-6">
                 {payments.map((p, i) => (
                   <div key={i} className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                     <span className="font-medium flex items-center gap-2">
-                      {p.method === 'CASH' && <DollarSign className="w-4 h-4 text-green-500" />}
+                      {p.method === 'CASH' && <Banknote className="w-4 h-4 text-green-500" />}
                       {p.method === 'CARD' && <CreditCard className="w-4 h-4 text-blue-500" />}
                       {p.method === 'QR' && <QrCode className="w-4 h-4 text-purple-500" />}
                       {p.method === 'BANK_TRANSFER' && <Building className="w-4 h-4 text-gray-500" />}
                       {p.method}
                     </span>
-                    <span className="font-bold text-green-600">Rs. {p.amount.toFixed(2)}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="font-bold text-green-600">{settings.currency_symbol} {p.amount.toFixed(2)}</span>
+                      <button onClick={() => removePayment(i)} className="text-red-400 hover:text-red-600"><X className="w-4 h-4"/></button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className="mt-6 pt-4 border-t border-gray-200 space-y-2">
               <div className="flex justify-between text-gray-600 text-lg">
                 <span>Balance Due</span>
-                <span className="font-bold text-red-500">Rs. {balanceDue.toFixed(2)}</span>
+                <span className="font-bold text-red-500">{settings.currency_symbol} {balanceDue.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-gray-600 text-lg">
                 <span>Change Due</span>
-                <span className="font-bold text-green-500">Rs. {changeDue.toFixed(2)}</span>
+                <span className="font-bold text-green-500">{settings.currency_symbol} {changeDue.toFixed(2)}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side: Payment Input */}
         <div className="flex-1 bg-white flex flex-col relative">
           <div className="hidden md:flex justify-end p-4 absolute top-0 right-0">
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full"><X className="w-6 h-6" /></button>
@@ -184,7 +192,6 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
 
           <div className="p-6 md:p-8 flex-1 flex flex-col justify-center">
             
-            {/* Payment Method Tabs */}
             <div className="grid grid-cols-4 gap-2 mb-8 bg-gray-100 p-1 rounded-xl">
               <button onClick={() => setActiveMethod('CASH')} className={`py-3 rounded-lg font-medium text-sm flex flex-col items-center justify-center transition-all ${activeMethod === 'CASH' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:bg-gray-50'}`}>
                 <DollarSign className="w-5 h-5 mb-1" /> Cash

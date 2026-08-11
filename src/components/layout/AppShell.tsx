@@ -9,10 +9,12 @@ import {
   Calculator, 
   LogOut,
   Store,
-  Coffee
+  Coffee,
+  Settings
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useSettings } from '@/components/SettingsProvider'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -21,12 +23,14 @@ const navigation = [
   { name: 'Products', href: '/products', icon: Coffee },
   { name: 'Inventory', href: '/inventory', icon: Package },
   { name: 'Accounting', href: '/accounting', icon: Calculator },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const settings = useSettings()
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -42,7 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="bg-orange-500 p-1.5 rounded-lg">
               <Store className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900 tracking-tight">Waffle Bay</span>
+            <span className="text-xl font-bold text-gray-900 tracking-tight">{settings.store_name}</span>
           </div>
         </div>
 
@@ -89,7 +93,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="bg-orange-500 p-1.5 rounded-lg">
               <Store className="h-5 w-5 text-white" />
             </div>
-            <span className="text-lg font-bold text-gray-900">Waffle Bay</span>
+            <span className="text-lg font-bold text-gray-900">{settings.store_name}</span>
           </div>
           <button onClick={handleSignOut} className="p-2 text-gray-500 hover:text-red-600">
             <LogOut className="h-5 w-5" />

@@ -11,6 +11,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import { Receipt, ReceiptData } from './Receipt'
 import { ShiftBlocker, CloseShiftButton } from './ShiftManager'
+import { useSettings } from '@/components/SettingsProvider'
 
 export function PosApp({
   categories,
@@ -21,6 +22,8 @@ export function PosApp({
   products: Product[]
   hasActiveShift?: boolean
 }) {
+  const settings = useSettings()
+
   const {
     activeCategoryId,
     setActiveCategory,
@@ -141,8 +144,8 @@ export function PosApp({
                   {/* Real images will go here, using a placeholder for now */}
                   <span className="text-2xl font-bold">{product.name.charAt(0)}</span>
                 </div>
-                <h3 className="font-bold text-gray-900 line-clamp-2">{product.name}</h3>
-                <p className="text-orange-600 font-semibold mt-1">Rs. {Number(product.base_price).toFixed(2)}</p>
+                <h3 className="font-medium text-gray-900 leading-tight">{product.name}</h3>
+                <p className="text-orange-600 font-semibold mt-1">{settings.currency_symbol} {Number(product.base_price).toFixed(2)}</p>
               </button>
             ))}
           </div>
@@ -183,10 +186,12 @@ export function PosApp({
                     <div>
                       <h4 className="font-bold text-gray-900">{item.product.name}</h4>
                       {item.modifiers.map(mod => (
-                        <p key={mod.id} className="text-xs text-gray-500">+ {mod.name} (Rs. {Number(mod.price).toFixed(2)})</p>
+                        <p key={mod.id} className="text-xs text-gray-500">+ {mod.name} ({settings.currency_symbol} {Number(mod.price).toFixed(2)})</p>
                       ))}
                     </div>
-                    <p className="font-bold text-orange-600">Rs. {item.itemTotal.toFixed(2)}</p>
+                    <div className="text-right">
+                      <p className="font-bold text-orange-600">{settings.currency_symbol} {item.itemTotal.toFixed(2)}</p>
+                    </div>
                   </div>
                   <div className="flex justify-between items-center mt-2">
                     <div className="flex items-center space-x-3 bg-white rounded-lg shadow-sm">
@@ -204,32 +209,32 @@ export function PosApp({
 
         {/* Totals & Checkout */}
         <div className="p-6 border-t bg-gray-50">
-          <div className="space-y-2 mb-4 text-sm">
+          <div className="space-y-3 mb-6">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>Rs. {getSubtotal().toFixed(2)}</span>
+              <span>{settings.currency_symbol} {getSubtotal().toFixed(2)}</span>
             </div>
             {discountPercent > 0 && (
-              <div className="flex justify-between text-orange-500 font-medium">
+              <div className="flex justify-between text-green-600">
                 <span>Discount ({discountPercent}%)</span>
-                <span>-Rs. {(getSubtotal() * (discountPercent/100)).toFixed(2)}</span>
+                <span>-{settings.currency_symbol} {(getSubtotal() * (discountPercent/100)).toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-gray-600">
               <span>Tax</span>
-              <span>Rs. {getTaxAmount().toFixed(2)}</span>
+              <span>{settings.currency_symbol} {getTaxAmount().toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t mt-2">
+            <div className="flex justify-between text-2xl font-bold text-gray-900 pt-3 border-t border-gray-200">
               <span>Total</span>
-              <span>Rs. {getTotal().toFixed(2)}</span>
+              <span>{settings.currency_symbol} {getTotal().toFixed(2)}</span>
             </div>
           </div>
           <button
             onClick={handleCheckout}
             disabled={cart.length === 0}
-            className="w-full bg-orange-500 text-white font-bold text-lg py-4 rounded-2xl shadow-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+            className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-lg font-bold py-4 rounded-2xl shadow-sm transition-colors"
           >
-            Pay Rs. {getTotal().toFixed(2)}
+            Pay {settings.currency_symbol} {getTotal().toFixed(2)}
           </button>
         </div>
       </div>
@@ -263,7 +268,7 @@ export function PosApp({
               {selectedProduct.modifier_groups?.map(group => (
                 <div key={group.id}>
                   <h3 className="font-bold text-gray-900 mb-3">{group.name} {group.is_required && <span className="text-red-500">*</span>}</h3>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     {group.modifiers?.map(modifier => {
                       const isSelected = selectedModifiers.some(m => m.id === modifier.id)
                       return (
@@ -273,7 +278,6 @@ export function PosApp({
                             if (isSelected) {
                               setSelectedModifiers(prev => prev.filter(m => m.id !== modifier.id))
                             } else {
-                              // Basic logic: if max_selections is 1, replace previous selection in same group
                               if (group.max_selections === 1) {
                                 const otherModsInGroup = group.modifiers?.map(m => m.id) || []
                                 setSelectedModifiers(prev => [...prev.filter(m => !otherModsInGroup.includes(m.id)), modifier])
@@ -286,8 +290,11 @@ export function PosApp({
                             isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-200'
                           }`}
                         >
-                          <span className="font-medium text-sm text-gray-900">{modifier.name}</span>
-                          <span className="text-sm text-gray-500">+Rs. {Number(modifier.price).toFixed(2)}</span>
+                          <div className="flex items-center space-x-2">
+                            <input type="checkbox" checked={isSelected} readOnly className="w-5 h-5 text-orange-500 rounded" />
+                            <span>{modifier.name}</span>
+                          </div>
+                          <span className="text-sm text-gray-500">+ {settings.currency_symbol} {Number(modifier.price).toFixed(2)}</span>
                         </button>
                       )
                     })}

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createProduct, updateProduct } from '@/app/actions/products'
 import { X } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useSettings } from '@/components/SettingsProvider'
 
 export interface Category {
   id: string
@@ -17,6 +18,7 @@ interface AddModalProps {
 
 export function AddProductModal({ onClose, categories }: AddModalProps) {
   const router = useRouter()
+  const settings = useSettings()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -88,7 +90,7 @@ export function AddProductModal({ onClose, categories }: AddModalProps) {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Base Price (Rs.)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Base Price ({settings.currency_symbol})</label>
             <input 
               required
               type="number"
@@ -126,6 +128,7 @@ interface EditModalProps {
 
 export function EditProductModal({ onClose, categories, item }: EditModalProps) {
   const router = useRouter()
+  const settings = useSettings()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
@@ -193,7 +196,7 @@ export function EditProductModal({ onClose, categories, item }: EditModalProps) 
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Base Price (Rs.)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Base Price ({settings.currency_symbol})</label>
             <input 
               required
               type="number"

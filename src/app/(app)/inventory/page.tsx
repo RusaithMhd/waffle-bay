@@ -9,6 +9,9 @@ export default async function InventoryPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single()
+  const currencySymbol = settings?.currency_symbol || 'Rs.'
+
   const { data: ingredients } = await supabase
     .from('ingredients')
     .select('*')
@@ -59,7 +62,7 @@ export default async function InventoryPage() {
                     </td>
                     <td className="p-4 text-sm">{item.unit_of_measure}</td>
                     <td className="p-4 text-sm text-gray-500">{item.reorder_level}</td>
-                    <td className="p-4 text-sm">Rs. {Number(item.cost_per_unit).toFixed(2)}</td>
+                    <td className="p-4 text-sm">{currencySymbol} {Number(item.cost_per_unit).toFixed(2)}</td>
                     <td className="p-4 text-right">
                       <InventoryRowActions item={{
                         id: item.id,

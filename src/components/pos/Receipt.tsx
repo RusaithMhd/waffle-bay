@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { Printer } from 'lucide-react'
+import { useSettings } from '@/components/SettingsProvider'
 
 export interface ReceiptData {
   order_number: string
+  receipt_id: string
   created_at: string
   subtotal: number
   tax: number
@@ -16,7 +19,7 @@ export interface ReceiptData {
     modifiers: Array<{ name: string, price: number }>
   }>
   payments: Array<{
-    method: string
+    payment_method: string
     amount: number
   }>
   offline?: boolean
@@ -29,6 +32,7 @@ interface ReceiptProps {
 
 export function Receipt({ data, onClose }: ReceiptProps) {
   const printTriggered = useRef(false)
+  const settings = useSettings()
 
   useEffect(() => {
     if (data && !printTriggered.current) {
@@ -84,11 +88,12 @@ export function Receipt({ data, onClose }: ReceiptProps) {
         <div id="printable-receipt" className="w-[302px] bg-white p-4 font-mono text-sm text-black">
           {/* Header */}
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold mb-1">WAFFLE BAY</h1>
-            <p className="text-xs">123 Waffle Street, Baker City</p>
-            <p className="text-xs">Tax ID: 987654321</p>
-            <p className="text-xs mt-2">{new Date(data.created_at || Date.now()).toLocaleString()}</p>
-            <h2 className="text-lg font-bold mt-2">Order #{data.order_number}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">{settings.store_name}</h2>
+            <p className="text-sm text-gray-500">{settings.store_address}</p>
+            <div className="text-sm text-gray-500 mt-2">
+              <p>Receipt #{data.receipt_id}</p>
+              <p>{new Date(data.created_at).toLocaleString()}</p>
+            </div>
             {data.offline && <p className="text-xs border border-black inline-block px-1 mt-1 font-bold">OFFLINE MODE</p>}
           </div>
 
@@ -108,7 +113,7 @@ export function Receipt({ data, onClose }: ReceiptProps) {
                 <div key={idx} className="mb-2">
                   <div className="flex justify-between text-xs">
                     <span className="flex-1 pr-2">{item.quantity}x {item.name}</span>
-                    <span>Rs. {itemTotal.toFixed(2)}</span>
+                    <span>{settings.currency_symbol} {itemTotal.toFixed(2)}</span>
                   </div>
                   {item.modifiers.length > 0 && (
                     <div className="text-[10px] pl-4 text-gray-700">
@@ -123,41 +128,42 @@ export function Receipt({ data, onClose }: ReceiptProps) {
           </div>
 
           {/* Totals */}
-          <div className="border-t border-black pt-2 mb-4 space-y-1 text-xs">
-            <div className="flex justify-between">
-              <span>Subtotal:</span>
-              <span>Rs. {data.subtotal.toFixed(2)}</span>
+          <div className="border-t border-dashed border-gray-300 pt-4 space-y-2">
+            <div className="flex justify-between text-gray-600">
+              <span>Subtotal</span>
+              <span>{settings.currency_symbol} {data.subtotal.toFixed(2)}</span>
             </div>
             {data.discount > 0 && (
-              <div className="flex justify-between">
-                <span>Discount:</span>
-                <span>-Rs. {data.discount.toFixed(2)}</span>
+              <div className="flex justify-between text-green-600">
+                <span>Discount</span>
+                <span>-{settings.currency_symbol} {data.discount.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between">
-              <span>Tax:</span>
-              <span>Rs. {data.tax.toFixed(2)}</span>
+            <div className="flex justify-between text-gray-600">
+              <span>Tax</span>
+              <span>{settings.currency_symbol} {data.tax.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-base font-bold mt-2 border-t border-black pt-1">
-              <span>TOTAL:</span>
-              <span>Rs. {data.total.toFixed(2)}</span>
+            <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-200 mt-2">
+              <span>Total</span>
+              <span>{settings.currency_symbol} {data.total.toFixed(2)}</span>
             </div>
           </div>
 
           {/* Payments */}
-          <div className="mb-6 text-xs">
+          <div className="border-t border-dashed border-gray-300 pt-4 mt-4">
+            <h4 className="font-semibold text-gray-700 mb-2">Payments</h4>
             {data.payments.map((p, idx) => (
-              <div key={idx} className="flex justify-between">
-                <span>{p.method}:</span>
-                <span>Rs. {p.amount.toFixed(2)}</span>
+              <div key={idx} className="flex justify-between text-gray-600 text-sm">
+                <span>{p.payment_method}</span>
+                <span>{settings.currency_symbol} {p.amount.toFixed(2)}</span>
               </div>
             ))}
           </div>
 
           {/* Footer */}
-          <div className="text-center text-xs mt-8">
-            <p className="font-bold">Thank you for visiting!</p>
-            <p>wafflebay.example.com</p>
+          <div className="text-center mt-8 text-gray-500 text-sm space-y-1">
+            <p>{settings.receipt_header}</p>
+            <p>{settings.receipt_footer}</p>
           </div>
         </div>
       </div>
