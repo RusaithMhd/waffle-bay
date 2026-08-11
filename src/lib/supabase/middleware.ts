@@ -55,7 +55,6 @@ export async function updateSession(request: NextRequest) {
   if (user && isAuthRoute) {
     const role = await getRoleForUser(supabase, user.id)
     if (!role) {
-      // If they have no role, let them stay on login to re-authenticate or see an error
       return supabaseResponse
     }
     const home = ROLE_HOME[role] || '/'
@@ -64,34 +63,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // ── 3. Authenticated + visiting app route → RBAC check ──────────────────────
-  if (user) {
-    const role = await getRoleForUser(supabase, user.id)
-
-    // Find the most specific matching route permission
-    // Sort by length descending so '/settings/staff' matches before '/settings'
-    const matchedRoute = Object.keys(ROUTE_PERMISSIONS)
-      .filter(r => pathname === r || pathname.startsWith(r === '/' ? '/__never__' : r + '/') || pathname === r)
-      .sort((a, b) => b.length - a.length)[0]
-
-    if (matchedRoute) {
-      const requiredPermission = ROUTE_PERMISSIONS[matchedRoute]
-      if (!hasPermission(role, requiredPermission)) {
-        // Redirect to role home rather than showing a raw 403
-        let home = '/login'
-        if (role && ROLE_HOME[role]) {
-          home = ROLE_HOME[role]
-        } else {
-          home = '/login?message=Account+requires+a+valid+role.+Please+sign+in+again.'
-        }
-        
-        const url  = request.nextUrl.clone()
-        url.pathname = home.split('?')[0]
-        url.search = home.includes('?') ? home.split('?')[1] : ''
-        return NextResponse.redirect(url)
-      }
-    }
-  }
+  // ── 3. Authenticated + visiting app route ───────────────────────────────────
+  // RBAC checks are handled inside the page.tsx Server Components.
+  // We do not query the database for roles here to eliminate unnecessary latency on every navigation.
 
   return supabaseResponse
 }
