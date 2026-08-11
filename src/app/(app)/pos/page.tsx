@@ -2,6 +2,7 @@ import { ProductService } from '@/services/inventory/products'
 import { createClient } from '@/lib/supabase/server'
 import { PosApp } from '@/components/pos/PosApp'
 import { redirect } from 'next/navigation'
+import { checkActiveShift } from '@/app/actions/shifts'
 
 export default async function Home() {
   const supabase = await createClient()
@@ -32,9 +33,11 @@ export default async function Home() {
   )
   const products = (await Promise.all(productsWithModifiersPromises)).filter(Boolean) as any[]
 
+  const { hasActiveShift } = await checkActiveShift()
+
   return (
     <main>
-      <PosApp categories={categories} products={products} />
+      <PosApp categories={categories} products={products} hasActiveShift={hasActiveShift} />
     </main>
   )
 }
