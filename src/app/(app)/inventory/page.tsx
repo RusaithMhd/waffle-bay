@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
-import { RestockButton } from './RestockButton'
+import { AddIngredientButton, InventoryRowActions } from './InventoryActions'
 import { redirect } from 'next/navigation'
-import { AlertTriangle, Plus, ArrowDownToLine } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 
 export default async function InventoryPage() {
   const supabase = await createClient()
@@ -21,10 +21,7 @@ export default async function InventoryPage() {
           <h1 className="text-3xl font-bold text-gray-900">Inventory Management</h1>
           <p className="text-gray-500 mt-2">Monitor stock levels and manage reordering.</p>
         </div>
-        <button className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors">
-          <Plus className="w-5 h-5" />
-          <span>New Purchase Order</span>
-        </button>
+        <AddIngredientButton />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -60,11 +57,17 @@ export default async function InventoryPage() {
                         {item.current_stock}
                       </span>
                     </td>
-                    <td className="p-4 text-sm">{item.unit}</td>
+                    <td className="p-4 text-sm">{item.unit_of_measure}</td>
                     <td className="p-4 text-sm text-gray-500">{item.reorder_level}</td>
                     <td className="p-4 text-sm">Rs. {Number(item.cost_per_unit).toFixed(2)}</td>
                     <td className="p-4 text-right">
-                      <RestockButton ingredientId={item.id} costPerUnit={Number(item.cost_per_unit)} />
+                      <InventoryRowActions item={{
+                        id: item.id,
+                        name: item.name,
+                        unit_of_measure: item.unit_of_measure,
+                        reorder_level: Number(item.reorder_level),
+                        cost_per_unit: Number(item.cost_per_unit)
+                      }} />
                     </td>
                   </tr>
                 )
