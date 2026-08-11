@@ -10,27 +10,18 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single()
+  // Fetch all dashboard data in parallel for maximum speed
+  const [
+    { data: settings },
+    { data: ordersData },
+    { data: lowStockData }
+  ] = await Promise.all([
+    supabase.from('store_settings').select('*').eq('id', 1).single(),
+    supabase.from('orders').select('total, status').gte('created_at', today.toISOString()).eq('status', 'PAID'),
+    supabase.from('ingredients').select('*').lte('current_stock', 500)
+  ])
+
   const currencySymbol = settings?.currency_symbol || 'Rs.'
-
-  // Simple query for demo purposes & Orders
-  const today = new Date()
-  today.setHours(0,0,0,0)
-
-  const { data: ordersData } = await supabase
-    .from('orders')
-    .select('total, status')
-    .gte('created_at', today.toISOString())
-    .eq('status', 'PAID')
-
-  const totalSales = ordersData?.reduce((acc, order) => acc + Number(order.total), 0) || 0
-  const totalOrders = ordersData?.length || 0
-
-  // Get Low Stock Ingredients
-  const { data: lowStockData } = await supabase
-    .from('ingredients')
-    .select('*')
-    .lte('current_stock', 500) // Rough low stock threshold (we can use reorder_level in a real scenario if the UI allows it)
 
   const lowStockCount = lowStockData?.filter(item => Number(item.current_stock) <= Number(item.reorder_level))?.length || 0
 

@@ -9,13 +9,16 @@ export default async function InventoryPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single()
-  const currencySymbol = settings?.currency_symbol || 'Rs.'
+  // Fetch settings and inventory concurrently
+  const [
+    { data: settings },
+    { data: ingredients }
+  ] = await Promise.all([
+    supabase.from('store_settings').select('*').eq('id', 1).single(),
+    supabase.from('ingredients').select('*').order('name')
+  ])
 
-  const { data: ingredients } = await supabase
-    .from('ingredients')
-    .select('*')
-    .order('name')
+  const currencySymbol = settings?.currency_symbol || 'Rs.'
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">

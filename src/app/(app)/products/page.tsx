@@ -9,22 +9,18 @@ export default async function ProductsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single()
+  // Fetch settings, products, and categories concurrently
+  const [
+    { data: settings },
+    { data: products },
+    { data: categories }
+  ] = await Promise.all([
+    supabase.from('store_settings').select('*').eq('id', 1).single(),
+    supabase.from('products').select('*, category:categories(name)').order('name'),
+    supabase.from('categories').select('id, name').order('name')
+  ])
+
   const currencySymbol = settings?.currency_symbol || 'Rs.'
-
-  // Fetch products and categories
-  const { data: products } = await supabase
-    .from('products')
-    .select(`
-      *,
-      category:categories(name)
-    `)
-    .order('name')
-
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('id, name')
-    .order('name')
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
