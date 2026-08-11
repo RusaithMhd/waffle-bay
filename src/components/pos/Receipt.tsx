@@ -108,7 +108,7 @@ export function Receipt({ data, onClose }: ReceiptProps) {
                 <div key={idx} className="mb-2">
                   <div className="flex justify-between text-xs">
                     <span className="flex-1 pr-2">{item.quantity}x {item.name}</span>
-                    <span>${itemTotal.toFixed(2)}</span>
+                    <span>Rs. {itemTotal.toFixed(2)}</span>
                   </div>
                   {item.modifiers.length > 0 && (
                     <div className="text-[10px] pl-4 text-gray-700">
@@ -126,21 +126,21 @@ export function Receipt({ data, onClose }: ReceiptProps) {
           <div className="border-t border-black pt-2 mb-4 space-y-1 text-xs">
             <div className="flex justify-between">
               <span>Subtotal:</span>
-              <span>${data.subtotal.toFixed(2)}</span>
+              <span>Rs. {data.subtotal.toFixed(2)}</span>
             </div>
             {data.discount > 0 && (
               <div className="flex justify-between">
                 <span>Discount:</span>
-                <span>-${data.discount.toFixed(2)}</span>
+                <span>-Rs. {data.discount.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between">
               <span>Tax:</span>
-              <span>${data.tax.toFixed(2)}</span>
+              <span>Rs. {data.tax.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-base font-bold mt-2 border-t border-black pt-1">
               <span>TOTAL:</span>
-              <span>${data.total.toFixed(2)}</span>
+              <span>Rs. {data.total.toFixed(2)}</span>
             </div>
           </div>
 
@@ -149,7 +149,7 @@ export function Receipt({ data, onClose }: ReceiptProps) {
             {data.payments.map((p, idx) => (
               <div key={idx} className="flex justify-between">
                 <span>{p.method}:</span>
-                <span>${p.amount.toFixed(2)}</span>
+                <span>Rs. {p.amount.toFixed(2)}</span>
               </div>
             ))}
           </div>

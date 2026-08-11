@@ -10,13 +10,16 @@ import { SyncService } from '@/services/sync'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import { Receipt, ReceiptData } from './Receipt'
+import { ShiftBlocker, CloseShiftButton } from './ShiftManager'
 
 export function PosApp({
   categories,
-  products
+  products,
+  hasActiveShift = true
 }: {
   categories: Category[]
   products: Product[]
+  hasActiveShift?: boolean
 }) {
   const {
     activeCategoryId,
@@ -93,12 +96,13 @@ export function PosApp({
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      
+      {!hasActiveShift && <ShiftBlocker />}
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         
         {/* Categories Header */}
-        <div className="bg-white p-4 shadow-sm z-10 flex overflow-x-auto space-x-2 shrink-0 hide-scrollbar">
+        <div className="bg-white p-4 shadow-sm z-10 flex items-center justify-between shrink-0">
+          <div className="flex overflow-x-auto space-x-2 hide-scrollbar">
           <button
             onClick={() => setActiveCategory(null)}
             className={`px-6 py-3 rounded-full whitespace-nowrap font-medium transition-colors ${
@@ -118,6 +122,10 @@ export function PosApp({
               {category.name}
             </button>
           ))}
+          </div>
+          <div className="ml-4 shrink-0">
+            {hasActiveShift && <CloseShiftButton />}
+          </div>
         </div>
 
         {/* Product Grid */}
@@ -134,7 +142,7 @@ export function PosApp({
                   <span className="text-2xl font-bold">{product.name.charAt(0)}</span>
                 </div>
                 <h3 className="font-bold text-gray-900 line-clamp-2">{product.name}</h3>
-                <p className="text-orange-600 font-semibold mt-1">${Number(product.base_price).toFixed(2)}</p>
+                <p className="text-orange-600 font-semibold mt-1">Rs. {Number(product.base_price).toFixed(2)}</p>
               </button>
             ))}
           </div>
@@ -175,10 +183,10 @@ export function PosApp({
                     <div>
                       <h4 className="font-bold text-gray-900">{item.product.name}</h4>
                       {item.modifiers.map(mod => (
-                        <p key={mod.id} className="text-xs text-gray-500">+ {mod.name} (${Number(mod.price).toFixed(2)})</p>
+                        <p key={mod.id} className="text-xs text-gray-500">+ {mod.name} (Rs. {Number(mod.price).toFixed(2)})</p>
                       ))}
                     </div>
-                    <p className="font-bold text-orange-600">${item.itemTotal.toFixed(2)}</p>
+                    <p className="font-bold text-orange-600">Rs. {item.itemTotal.toFixed(2)}</p>
                   </div>
                   <div className="flex justify-between items-center mt-2">
                     <div className="flex items-center space-x-3 bg-white rounded-lg shadow-sm">
@@ -199,21 +207,21 @@ export function PosApp({
           <div className="space-y-2 mb-4 text-sm">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>${getSubtotal().toFixed(2)}</span>
+              <span>Rs. {getSubtotal().toFixed(2)}</span>
             </div>
             {discountPercent > 0 && (
               <div className="flex justify-between text-orange-500 font-medium">
                 <span>Discount ({discountPercent}%)</span>
-                <span>-${(getSubtotal() * (discountPercent/100)).toFixed(2)}</span>
+                <span>-Rs. {(getSubtotal() * (discountPercent/100)).toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between text-gray-600">
               <span>Tax</span>
-              <span>${getTaxAmount().toFixed(2)}</span>
+              <span>Rs. {getTaxAmount().toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t mt-2">
               <span>Total</span>
-              <span>${getTotal().toFixed(2)}</span>
+              <span>Rs. {getTotal().toFixed(2)}</span>
             </div>
           </div>
           <button
@@ -221,7 +229,7 @@ export function PosApp({
             disabled={cart.length === 0}
             className="w-full bg-orange-500 text-white font-bold text-lg py-4 rounded-2xl shadow-md hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
           >
-            Pay ${getTotal().toFixed(2)}
+            Pay Rs. {getTotal().toFixed(2)}
           </button>
         </div>
       </div>
@@ -279,7 +287,7 @@ export function PosApp({
                           }`}
                         >
                           <span className="font-medium text-sm text-gray-900">{modifier.name}</span>
-                          <span className="text-sm text-gray-500">+${Number(modifier.price).toFixed(2)}</span>
+                          <span className="text-sm text-gray-500">+Rs. {Number(modifier.price).toFixed(2)}</span>
                         </button>
                       )
                     })}

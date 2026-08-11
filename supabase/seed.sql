@@ -15,7 +15,7 @@ INSERT INTO public.categories (id, name, sort_order) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. Create Ingredients
-INSERT INTO public.ingredients (id, name, unit, current_stock, minimum_stock) VALUES
+INSERT INTO public.ingredients (id, name, unit_of_measure, current_stock, reorder_level) VALUES
 ('aaaa1111-1111-1111-1111-111111111111', 'Waffle Batter', 'kg', 50, 10),
 ('bbbb2222-2222-2222-2222-222222222222', 'Nutella', 'g', 10000, 2000),
 ('cccc3333-3333-3333-3333-333333333333', 'Strawberries', 'g', 5000, 1000),
@@ -23,7 +23,7 @@ INSERT INTO public.ingredients (id, name, unit, current_stock, minimum_stock) VA
 ON CONFLICT (id) DO NOTHING;
 
 -- 3. Create Products
-INSERT INTO public.products (id, category_id, name, description, price, is_available) VALUES
+INSERT INTO public.products (id, category_id, name, description, base_price, is_active) VALUES
 ('55555555-5555-5555-5555-555555555555', '11111111-1111-1111-1111-111111111111', 'Classic Belgian Waffle', 'Simple and delicious.', 5.00, true),
 ('66666666-6666-6666-6666-666666666666', '22222222-2222-2222-2222-222222222222', 'Nutella Strawberry Waffle', 'Loaded with toppings.', 8.50, true),
 ('77777777-7777-7777-7777-777777777777', '33333333-3333-3333-3333-333333333333', 'Latte', 'Freshly brewed espresso with steamed milk.', 4.00, true)
@@ -44,12 +44,12 @@ INSERT INTO public.modifier_groups (id, name, is_required, min_selections, max_s
 ON CONFLICT (id) DO NOTHING;
 
 -- Map Modifier Group to Product (Classic Belgian Waffle)
-INSERT INTO public.product_modifier_groups (product_id, modifier_group_id, sort_order) VALUES
-('55555555-5555-5555-5555-555555555555', '88888888-8888-8888-8888-888888888888', 1)
+INSERT INTO public.product_modifiers (product_id, modifier_group_id) VALUES
+('55555555-5555-5555-5555-555555555555', '88888888-8888-8888-8888-888888888888')
 ON CONFLICT DO NOTHING;
 
 -- 6. Create Modifiers
-INSERT INTO public.modifiers (id, group_id, name, price, is_available) VALUES
+INSERT INTO public.modifiers (id, group_id, name, price, is_active) VALUES
 ('99999999-9999-9999-9999-999999999999', '88888888-8888-8888-8888-888888888888', 'Extra Nutella', 1.50, true),
 ('00000000-0000-0000-0000-000000000000', '88888888-8888-8888-8888-888888888888', 'Extra Strawberries', 1.50, true)
 ON CONFLICT (id) DO NOTHING;
@@ -59,5 +59,41 @@ INSERT INTO public.modifier_recipes (modifier_id, ingredient_id, quantity_requir
 ('99999999-9999-9999-9999-999999999999', 'bbbb2222-2222-2222-2222-222222222222', 25), -- 25g Nutella
 ('00000000-0000-0000-0000-000000000000', 'cccc3333-3333-3333-3333-333333333333', 50) -- 50g Strawberries
 ON CONFLICT DO NOTHING;
+
+-- 8. Create Test User (admin@wafflebay.com / password123)
+INSERT INTO auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, recovery_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
+) VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  'd47da153-65aa-4eb6-a537-8fb2f3e8b0fb',
+  'authenticated',
+  'authenticated',
+  'admin@wafflebay.com',
+  extensions.crypt('password123', extensions.gen_salt('bf')),
+  now(),
+  now(),
+  now(),
+  '{"provider":"email","providers":["email"]}',
+  '{}',
+  now(),
+  now(),
+  '',
+  '',
+  '',
+  ''
+) ON CONFLICT DO NOTHING;
+
+INSERT INTO auth.identities (
+  id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+) VALUES (
+  'd47da153-65aa-4eb6-a537-8fb2f3e8b0fb',
+  'd47da153-65aa-4eb6-a537-8fb2f3e8b0fb',
+  'd47da153-65aa-4eb6-a537-8fb2f3e8b0fb',
+  format('{"sub":"%s","email":"%s"}', 'd47da153-65aa-4eb6-a537-8fb2f3e8b0fb', 'admin@wafflebay.com')::jsonb,
+  'email',
+  now(),
+  now(),
+  now()
+) ON CONFLICT DO NOTHING;
 
 COMMIT;

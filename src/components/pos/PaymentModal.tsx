@@ -142,7 +142,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
           <div className="p-6 flex-1 overflow-y-auto">
             <div className="bg-white rounded-2xl p-6 shadow-sm mb-6 text-center">
               <p className="text-gray-500 font-medium mb-1">Total Due</p>
-              <p className="text-4xl font-bold text-gray-900">${total.toFixed(2)}</p>
+              <p className="text-4xl font-bold text-gray-900">Rs. {total.toFixed(2)}</p>
             </div>
 
             {payments.length > 0 && (
@@ -157,7 +157,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
                       {p.method === 'BANK_TRANSFER' && <Building className="w-4 h-4 text-gray-500" />}
                       {p.method}
                     </span>
-                    <span className="font-bold text-green-600">${p.amount.toFixed(2)}</span>
+                    <span className="font-bold text-green-600">Rs. {p.amount.toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -166,11 +166,11 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
             <div className="space-y-2">
               <div className="flex justify-between text-gray-600 text-lg">
                 <span>Balance Due</span>
-                <span className="font-bold text-red-500">${balanceDue.toFixed(2)}</span>
+                <span className="font-bold text-red-500">Rs. {balanceDue.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-gray-600 text-lg">
                 <span>Change Due</span>
-                <span className="font-bold text-green-500">${changeDue.toFixed(2)}</span>
+                <span className="font-bold text-green-500">Rs. {changeDue.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -203,7 +203,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
             {/* Amount Input */}
             <div className="mb-8">
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-gray-400">$</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-gray-400">Rs.</span>
                 <input
                   type="number"
                   value={currentInput}
@@ -228,7 +228,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
                   onClick={() => handleAddPayment(balanceDue)}
                   className="bg-green-100 text-green-700 font-bold py-3 rounded-xl hover:bg-green-200 transition-colors col-span-3"
                 >
-                  Exact Amount (${balanceDue.toFixed(2)})
+                  Exact Amount (Rs. {balanceDue.toFixed(2)})
                 </button>
                 {quickCashAmounts.map(amt => (
                   <button
@@ -236,7 +236,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
                     onClick={() => handleAddPayment(amt)}
                     className="bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
                   >
-                    ${amt}
+                    Rs. {amt}
                   </button>
                 ))}
               </div>
