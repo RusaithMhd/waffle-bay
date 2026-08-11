@@ -11,8 +11,8 @@ export function SettingsTabs({ activeTab }: { activeTab: string }) {
   ]
 
   return (
-    <div className="border-b border-gray-200">
-      <nav className="-mb-px flex space-x-8">
+    <div className="border-b border-gray-200 overflow-x-auto hide-scrollbar">
+      <nav className="-mb-px flex space-x-4 md:space-x-8 min-w-max px-2 md:px-0">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id
           return (
