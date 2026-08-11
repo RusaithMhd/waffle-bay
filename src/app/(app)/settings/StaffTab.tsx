@@ -30,8 +30,8 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
   }
 
   return (
-    <div className="p-0">
-      <table className="w-full text-left border-collapse">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+      <table className="w-full text-left border-collapse min-w-[800px]">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm uppercase tracking-wider">
             <th className="p-6 font-semibold">Staff Member</th>

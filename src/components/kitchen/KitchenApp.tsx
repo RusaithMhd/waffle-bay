@@ -99,7 +99,7 @@ export function KitchenApp() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="bg-gray-800 text-white p-4 flex justify-between items-center border-b border-gray-700">
+      <div className="bg-gray-800 text-white p-4 flex flex-col md:flex-row justify-between items-center border-b border-gray-700 gap-3 md:gap-0">
         <h1 className="text-2xl font-bold flex items-center">
           <Bell className="mr-3 text-orange-500" /> Waffle Bay Kitchen
         </h1>
@@ -108,7 +108,7 @@ export function KitchenApp() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-x-auto p-6 flex gap-6 hide-scrollbar items-start">
+      <div className="flex-1 overflow-y-auto md:overflow-y-hidden md:overflow-x-auto p-4 md:p-6 flex flex-col md:flex-row gap-6 items-center md:items-start hide-scrollbar">
         {orders.map(order => {
           const isReady = order.fulfillment_status === 'READY'
           const allItemsDone = order.items.every(i => i.fulfillment_status === 'DONE')
@@ -116,7 +116,7 @@ export function KitchenApp() {
           return (
             <div 
               key={order.id} 
-              className={`min-w-[300px] w-[300px] flex flex-col rounded-2xl shadow-xl overflow-hidden border-2 transition-colors ${
+              className={`shrink-0 w-full max-w-md md:w-[300px] md:min-w-[300px] flex flex-col rounded-2xl shadow-xl overflow-hidden border-2 transition-colors ${
                 isReady ? 'bg-green-50 border-green-500' : 
                 allItemsDone ? 'bg-orange-50 border-orange-400' : 'bg-white border-gray-200'
               }`}
@@ -144,7 +144,7 @@ export function KitchenApp() {
               </div>
 
               {/* Items List */}
-              <div className="flex-1 p-4 space-y-3 overflow-y-auto max-h-[50vh]">
+              <div className="p-4 space-y-3 overflow-y-auto max-h-[50vh] md:flex-1">
                 {order.items.map(item => (
                   <button
                     key={item.id}

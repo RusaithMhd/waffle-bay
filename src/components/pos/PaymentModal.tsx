@@ -135,7 +135,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
+      <div className="bg-white w-full max-w-4xl rounded-3xl overflow-y-auto md:overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[95vh] md:max-h-[90vh]">
         
         <div className="flex-1 border-r bg-gray-50 flex flex-col">
           <div className="p-6 border-b bg-white flex justify-between items-center">
@@ -143,7 +143,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full md:hidden"><X className="w-6 h-6" /></button>
           </div>
           
-          <div className="p-6 flex-1 overflow-y-auto">
+          <div className="p-6 md:flex-1 md:overflow-y-auto">
             <div className="bg-orange-50 p-6 flex flex-col items-center justify-center rounded-2xl mb-6">
               <p className="text-orange-600 font-semibold mb-1">Total Amount</p>
               <p className="text-4xl font-bold text-gray-900">{settings.currency_symbol} {total.toFixed(2)}</p>
@@ -210,7 +210,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
             {/* Amount Input */}
             <div className="mb-8">
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-gray-400">Rs.</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl text-gray-400">{settings.currency_symbol}</span>
                 <input
                   type="number"
                   value={currentInput}
@@ -235,7 +235,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
                   onClick={() => handleAddPayment(balanceDue)}
                   className="bg-green-100 text-green-700 font-bold py-3 rounded-xl hover:bg-green-200 transition-colors col-span-3"
                 >
-                  Exact Amount (Rs. {balanceDue.toFixed(2)})
+                  Exact Amount ({settings.currency_symbol} {balanceDue.toFixed(2)})
                 </button>
                 {quickCashAmounts.map(amt => (
                   <button
@@ -243,7 +243,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
                     onClick={() => handleAddPayment(amt)}
                     className="bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
                   >
-                    Rs. {amt}
+                    {settings.currency_symbol} {amt}
                   </button>
                 ))}
               </div>
