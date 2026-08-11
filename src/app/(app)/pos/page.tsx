@@ -36,11 +36,24 @@ export default async function Home() {
   )
   const products = (await Promise.all(productsWithModifiersPromises)).filter(Boolean) as any[]
 
+  // Fetch Global Toppings
+  const { data: globalToppings } = await supabase
+    .from('modifier_groups')
+    .select('id, name, is_required, min_selections, max_selections, modifiers(*)')
+    .eq('name', 'Toppings')
+    .single()
+
   const { hasActiveShift } = await checkActiveShift()
 
   return (
     <div className="h-full">
-      <PosApp categories={categories} products={products} hasActiveShift={hasActiveShift} />
+      <PosApp 
+        categories={categories} 
+        products={products} 
+        hasActiveShift={hasActiveShift} 
+        globalToppingsGroup={globalToppings} 
+        userRole={userWithRole.role}
+      />
     </div>
   )
 }

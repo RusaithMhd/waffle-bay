@@ -38,27 +38,6 @@ INSERT INTO public.recipes (product_id, ingredient_id, quantity_required) VALUES
 ('77777777-7777-7777-7777-777777777777', 'dddd4444-4444-4444-4444-444444444444', 18) -- 18g coffee beans
 ON CONFLICT DO NOTHING;
 
--- 5. Create Modifier Groups
-INSERT INTO public.modifier_groups (id, name, is_required, min_selections, max_selections) VALUES
-('88888888-8888-8888-8888-888888888888', 'Extra Toppings', false, 0, 5)
-ON CONFLICT (id) DO NOTHING;
-
--- Map Modifier Group to Product (Classic Belgian Waffle)
-INSERT INTO public.product_modifiers (product_id, modifier_group_id) VALUES
-('55555555-5555-5555-5555-555555555555', '88888888-8888-8888-8888-888888888888')
-ON CONFLICT DO NOTHING;
-
--- 6. Create Modifiers
-INSERT INTO public.modifiers (id, group_id, name, price, is_active) VALUES
-('99999999-9999-9999-9999-999999999999', '88888888-8888-8888-8888-888888888888', 'Extra Nutella', 1.50, true),
-('00000000-0000-0000-0000-000000000000', '88888888-8888-8888-8888-888888888888', 'Extra Strawberries', 1.50, true)
-ON CONFLICT (id) DO NOTHING;
-
--- 7. Create Modifier Recipes
-INSERT INTO public.modifier_recipes (modifier_id, ingredient_id, quantity_required) VALUES
-('99999999-9999-9999-9999-999999999999', 'bbbb2222-2222-2222-2222-222222222222', 25), -- 25g Nutella
-('00000000-0000-0000-0000-000000000000', 'cccc3333-3333-3333-3333-333333333333', 50) -- 50g Strawberries
-ON CONFLICT DO NOTHING;
 
 -- 8. Fix Roles Constraint and Add Proper Roles
 -- First, drop the old constraint so we can update the rows

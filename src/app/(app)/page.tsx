@@ -60,47 +60,49 @@ export default async function DashboardPage() {
           </div>
         </header>
 
-        {/* Main Grid: 2 Columns for Metrics, 1 Column for Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Grid: 3 Columns for Metrics, 1 Column for Actions */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           
-          {/* Left Side: Metrics (col-span-2) */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Primary Metric - Revenue */}
-            <div className="group relative bg-white border border-slate-200/60 shadow-sm rounded-2xl p-6 hover:shadow-md hover:border-slate-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center space-x-2 text-slate-500 mb-2">
-                  <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
-                    <DollarSign className="w-4 h-4" />
+          {/* Left Side: Metrics (col-span-3) */}
+          <div className="lg:col-span-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              
+              {/* Primary Metric - Revenue */}
+              <div className="group relative bg-white border border-slate-200/60 shadow-sm rounded-2xl p-5 hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between h-[140px]">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2 text-slate-500">
+                    <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                      <DollarSign className="w-4 h-4" />
+                    </div>
+                    <h2 className="text-sm font-semibold text-slate-700">Net Revenue</h2>
                   </div>
-                  <h2 className="text-sm font-semibold text-slate-700">Net Revenue</h2>
+                  <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                    Today
+                  </span>
                 </div>
-                <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
-                  Today
-                </span>
+                <div className="flex items-baseline space-x-1">
+                  <span className="text-lg text-slate-400 font-medium">{currencySymbol}</span>
+                  <p className="text-3xl font-bold tracking-tight text-slate-900 truncate">
+                    {totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
               </div>
-              <div className="flex items-baseline space-x-2">
-                <span className="text-xl text-slate-400 font-medium">{currencySymbol}</span>
-                <p className="text-5xl font-bold tracking-tight text-slate-900">
-                  {totalSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
 
-            {/* Secondary Metrics - Side by Side */}
-            <div className="grid grid-cols-2 gap-6">
               {/* Orders */}
-              <div className="bg-white border border-slate-200/60 shadow-sm rounded-2xl p-5 hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between">
-                <div className="flex items-center space-x-2 text-slate-500 mb-2">
-                  <div className="p-1.5 bg-sky-50 text-sky-600 rounded-lg">
-                    <ShoppingBag className="w-4 h-4" />
+              <div className="bg-white border border-slate-200/60 shadow-sm rounded-2xl p-5 hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between h-[140px]">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2 text-slate-500">
+                    <div className="p-1.5 bg-sky-50 text-sky-600 rounded-lg">
+                      <ShoppingBag className="w-4 h-4" />
+                    </div>
+                    <h2 className="text-sm font-semibold text-slate-700">Total Orders</h2>
                   </div>
-                  <h2 className="text-sm font-semibold text-slate-700">Total Orders</h2>
                 </div>
                 <p className="text-3xl font-bold tracking-tight text-slate-900">{totalOrders}</p>
               </div>
 
               {/* Stock Alerts */}
-              <div className="bg-white border border-slate-200/60 shadow-sm rounded-2xl p-5 hover:shadow-md hover:border-slate-300 transition-all group flex flex-col justify-between relative overflow-hidden">
+              <div className="bg-white border border-slate-200/60 shadow-sm rounded-2xl p-5 hover:shadow-md hover:border-slate-300 transition-all group flex flex-col justify-between relative overflow-hidden h-[140px]">
                 {lowStockCount > 0 && <div className="absolute top-0 right-0 w-16 h-16 bg-rose-500/5 rounded-bl-full" />}
                 <div className="flex items-center justify-between mb-2 relative z-10">
                   <div className="flex items-center space-x-2 text-slate-500">
