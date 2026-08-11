@@ -65,7 +65,7 @@ export function CategoriesTab({ categories }: { categories: any[] }) {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+      <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse min-w-[600px]">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm uppercase tracking-wider">

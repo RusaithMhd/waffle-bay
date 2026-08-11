@@ -33,11 +33,11 @@ export function StoreConfigTab({ settings }: { settings: any }) {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-4 md:p-8 max-w-2xl">
       <h2 className="text-xl font-bold text-gray-900 mb-6">Store Configuration</h2>
       
       <form onSubmit={handleSave} className="space-y-6">
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Store Name</label>
             <input 
