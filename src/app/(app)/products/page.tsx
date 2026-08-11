@@ -2,12 +2,19 @@ import { createClient } from '@/lib/supabase/server'
 import { AddProductButton, ProductRowActions } from './ProductActions'
 import { redirect } from 'next/navigation'
 import { CheckCircle2, XCircle } from 'lucide-react'
+import { getCurrentUserWithRole } from '@/lib/auth'
+import { hasPermission }          from '@/lib/rbac'
+import { AccessDenied }           from '@/components/AccessDenied'
 
 export default async function ProductsPage() {
-  const supabase = await createClient()
+  const userWithRole = await getCurrentUserWithRole()
+  if (!userWithRole) redirect('/login')
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!hasPermission(userWithRole.role, 'products.view')) {
+    return <AccessDenied role={userWithRole.role} />
+  }
+
+  const supabase = await createClient()
 
   // Fetch settings, products, and categories concurrently
   const [

@@ -1,17 +1,17 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { AppRole, ROLE_HOME, ROUTE_PERMISSIONS, hasPermission } from '@/lib/rbac'
 
-// Routes each role is ALLOWED to access (exact pathname or prefix)
-const ROLE_ALLOWED_PATHS: Record<string, string[]> = {
-  kitchen: ['/kitchen'],
-  pos:     ['/pos'],
-  // admin / manager have no restrictions — they can access everything
-}
-
-// Where each restricted role lands after login
-const ROLE_HOME: Record<string, string> = {
-  kitchen: '/kitchen',
-  pos:     '/pos',
+async function getRoleForUser(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string
+): Promise<AppRole | null> {
+  const { data } = await supabase
+    .from('user_roles')
+    .select('roles(name)')
+    .eq('user_id', userId)
+    .single()
+  return ((data?.roles as any)?.name?.toLowerCase() as AppRole) || null
 }
 
 export async function updateSession(request: NextRequest) {
@@ -22,9 +22,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
+        getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
@@ -36,54 +34,48 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // IMPORTANT: Do not write any logic between createServerClient and getUser()
+  // IMPORTANT: Do not add logic between createServerClient and getUser()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const pathname   = request.nextUrl.pathname
+  const pathname    = request.nextUrl.pathname
   const isAuthRoute = pathname.startsWith('/login')
+  const isPublic    = pathname.startsWith('/error') || pathname.startsWith('/_next')
 
-  // 1. Not logged in — redirect to login
+  if (isPublic) return supabaseResponse
+
+  // ── 1. Not authenticated → go to login ──────────────────────────────────────
   if (!user && !isAuthRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // 2. Logged in, trying to hit login — redirect to home (role-aware)
+  // ── 2. Authenticated + trying to visit login → role-aware home ───────────────
   if (user && isAuthRoute) {
-    // Fetch role to decide where to send them
-    const { data: userRoleRow } = await supabase
-      .from('user_roles')
-      .select('roles(name)')
-      .eq('user_id', user.id)
-      .single()
-
-    const roleName: string = (userRoleRow?.roles as any)?.name?.toLowerCase() || ''
-    const home = ROLE_HOME[roleName] || '/'
-
-    const url = request.nextUrl.clone()
+    const role = await getRoleForUser(supabase, user.id)
+    const home = (role && ROLE_HOME[role]) || '/'
+    const url  = request.nextUrl.clone()
     url.pathname = home
     return NextResponse.redirect(url)
   }
 
-  // 3. Logged in, not on login — check role restrictions
+  // ── 3. Authenticated + visiting app route → RBAC check ──────────────────────
   if (user) {
-    const { data: userRoleRow } = await supabase
-      .from('user_roles')
-      .select('roles(name)')
-      .eq('user_id', user.id)
-      .single()
+    const role = await getRoleForUser(supabase, user.id)
 
-    const roleName: string = (userRoleRow?.roles as any)?.name?.toLowerCase() || ''
-    const allowedPaths = ROLE_ALLOWED_PATHS[roleName]
+    // Find the most specific matching route permission
+    // Sort by length descending so '/settings/staff' matches before '/settings'
+    const matchedRoute = Object.keys(ROUTE_PERMISSIONS)
+      .filter(r => pathname === r || pathname.startsWith(r === '/' ? '/__never__' : r + '/') || pathname === r)
+      .sort((a, b) => b.length - a.length)[0]
 
-    if (allowedPaths) {
-      // This role is restricted — check if the current path is allowed
-      const isAllowed = allowedPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
-      if (!isAllowed) {
-        // Redirect them to their designated home
-        const url = request.nextUrl.clone()
-        url.pathname = ROLE_HOME[roleName] || '/'
+    if (matchedRoute) {
+      const requiredPermission = ROUTE_PERMISSIONS[matchedRoute]
+      if (!hasPermission(role, requiredPermission)) {
+        // Redirect to role home rather than showing a raw 403
+        const home = (role && ROLE_HOME[role]) || '/login'
+        const url  = request.nextUrl.clone()
+        url.pathname = home
         return NextResponse.redirect(url)
       }
     }

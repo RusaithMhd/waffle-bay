@@ -3,17 +3,20 @@ import { createClient } from '@/lib/supabase/server'
 import { PosApp } from '@/components/pos/PosApp'
 import { redirect } from 'next/navigation'
 import { checkActiveShift } from '@/app/actions/shifts'
+import { getCurrentUserWithRole } from '@/lib/auth'
+import { hasPermission }          from '@/lib/rbac'
+import { AccessDenied }           from '@/components/AccessDenied'
 
 export default async function Home() {
-  const supabase = await createClient()
+  const userWithRole = await getCurrentUserWithRole()
+  if (!userWithRole) redirect('/login')
 
-  // Ensure user is authenticated (middleware should handle this, but it's good practice)
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect('/login')
+  if (!hasPermission(userWithRole.role, 'pos')) {
+    return <AccessDenied role={userWithRole.role} />
   }
 
   // Fetch data
+  const supabase = await createClient()
   const categories = await ProductService.getCategories(supabase)
   
   // In a real app we'd fetch products, then for each product we might fetch modifiers
