@@ -10,6 +10,9 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const today = new Date()
+  today.setHours(0,0,0,0)
+
   // Fetch all dashboard data in parallel for maximum speed
   const [
     { data: settings },
@@ -22,6 +25,9 @@ export default async function DashboardPage() {
   ])
 
   const currencySymbol = settings?.currency_symbol || 'Rs.'
+  
+  const totalSales = ordersData?.reduce((acc, order) => acc + Number(order.total), 0) || 0
+  const totalOrders = ordersData?.length || 0
 
   const lowStockCount = lowStockData?.filter(item => Number(item.current_stock) <= Number(item.reorder_level))?.length || 0
 
