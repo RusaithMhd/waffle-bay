@@ -54,6 +54,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
   cashier: [
     'pos',
     'shifts',
+    'kitchen',
   ],
 
   chef: [

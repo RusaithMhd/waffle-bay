@@ -15,7 +15,7 @@ export default async function KitchenPage() {
   // Realtime app runs entirely on the client
   return (
     <div className="h-full">
-      <KitchenApp />
+      <KitchenApp userRole={userWithRole.role} />
     </div>
   )
 }
