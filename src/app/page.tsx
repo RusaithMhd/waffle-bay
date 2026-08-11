@@ -1,0 +1,40 @@
+import { ProductService } from '@/services/inventory/products'
+import { createClient } from '@/lib/supabase/server'
+import { PosApp } from '@/components/pos/PosApp'
+import { redirect } from 'next/navigation'
+
+export default async function Home() {
+  const supabase = await createClient()
+
+  // Ensure user is authenticated (middleware should handle this, but it's good practice)
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    redirect('/login')
+  }
+
+  // Fetch data
+  const categories = await ProductService.getCategories(supabase)
+  
+  // In a real app we'd fetch products, then for each product we might fetch modifiers
+  // if they have them. For the prototype, we fetch all products, and if we need
+  // modifiers, the ProductService handles it.
+  const rawProducts = await ProductService.getProducts(supabase)
+  
+  // We need to resolve modifiers for products that have them.
+  // We can do this concurrently to save time, but we only need to do it for products
+  // that belong to modifier mapping.
+  
+  // To keep it simple and follow the prompt's "visual menu" requirement,
+  // we will map all products and attempt to load their modifiers.
+  // In a production scenario, we'd use a SQL JOIN or RPC to fetch this efficiently in one go.
+  const productsWithModifiersPromises = rawProducts.map(p => 
+    ProductService.getProductWithModifiers(supabase, p.id)
+  )
+  const products = (await Promise.all(productsWithModifiersPromises)).filter(Boolean) as any[]
+
+  return (
+    <main>
+      <PosApp categories={categories} products={products} />
+    </main>
+  )
+}
