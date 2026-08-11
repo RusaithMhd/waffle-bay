@@ -8,7 +8,8 @@ import {
   Package, 
   Calculator, 
   LogOut,
-  Store
+  Store,
+  Coffee
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Point of Sale', href: '/pos', icon: Store },
   { name: 'Kitchen Display', href: '/kitchen', icon: ChefHat },
+  { name: 'Products', href: '/products', icon: Coffee },
   { name: 'Inventory', href: '/inventory', icon: Package },
   { name: 'Accounting', href: '/accounting', icon: Calculator },
 ]
