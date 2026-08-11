@@ -36,8 +36,8 @@ export default async function Home() {
   const { hasActiveShift } = await checkActiveShift()
 
   return (
-    <main>
+    <div className="h-full">
       <PosApp categories={categories} products={products} hasActiveShift={hasActiveShift} />
-    </main>
+    </div>
   )
 }

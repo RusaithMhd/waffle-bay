@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Product, Category, ModifierGroup, Modifier } from '@/types'
 import { usePosStore } from '@/stores/usePosStore'
-import { ShoppingCart, Plus, Minus, X, Check, Search } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon } from 'lucide-react'
 import { PaymentModal } from './PaymentModal'
 import { useEffect } from 'react'
 import { SyncService } from '@/services/sync'
@@ -12,6 +12,7 @@ import { db } from '@/lib/db'
 import { Receipt, ReceiptData } from './Receipt'
 import { ShiftBlocker, CloseShiftButton } from './ShiftManager'
 import { useSettings } from '@/components/SettingsProvider'
+import Link from 'next/link'
 
 export function PosApp({
   categories,
@@ -46,6 +47,7 @@ export function PosApp({
   const [showCart, setShowCart] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
 
   // Sync menu locally on load
   useEffect(() => {
@@ -100,189 +102,271 @@ export function PosApp({
     setReceiptData(receipt)
   }
 
+  // Extracted Cart Internals for reuse in Desktop and Mobile views
+  const CartInternals = ({ isMobile = false }: { isMobile?: boolean }) => (
+    <>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
+        {cart.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-[#6B7280] space-y-3">
+            <ShoppingCart className="w-12 h-12 opacity-30" />
+            <p className="font-medium text-[15px]">Cart is empty</p>
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {cart.map((item) => (
+              <li key={item.id} className="bg-white border border-[#E5E7EB] rounded-xl p-3 flex flex-col shadow-sm group relative">
+                <button onClick={() => removeFromCart(item.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 hidden lg:block hover:bg-red-200">
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="flex justify-between items-start mb-2 pr-4">
+                  <div>
+                    <h4 className="font-semibold text-[#111827] text-[14px]">{item.product.name}</h4>
+                    {item.modifiers.length > 0 && (
+                      <div className="mt-0.5 space-y-0.5">
+                        {item.modifiers.map(mod => (
+                          <p key={mod.id} className="text-[12px] text-[#6B7280]">
+                            + {mod.name} <span className="ml-0.5">(+{settings.currency_symbol}{Number(mod.price).toFixed(2)})</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-[#111827] text-[14px]">{settings.currency_symbol} {item.itemTotal.toFixed(2)}</p>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-gray-50 mt-1">
+                  <div className="flex items-center space-x-1 bg-[#F8FAFC] rounded-lg p-0.5 border border-[#E5E7EB]">
+                    <button onClick={() => updateQuantity(item.id, -1)} className="p-1 text-[#6B7280] hover:text-[#111827] hover:bg-white rounded transition-colors"><Minus className="w-4 h-4" /></button>
+                    <span className="font-bold text-[14px] w-8 text-center text-[#111827]">{item.quantity}</span>
+                    <button onClick={() => updateQuantity(item.id, 1)} className="p-1 text-[#6B7280] hover:text-[#111827] hover:bg-white rounded transition-colors"><Plus className="w-4 h-4" /></button>
+                  </div>
+                  {isMobile && (
+                    <button onClick={() => removeFromCart(item.id)} className="text-red-500 text-sm font-medium px-2 py-1 hover:bg-red-50 rounded transition-colors lg:hidden">Remove</button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Totals & Checkout */}
+      <div className="p-4 bg-white border-t border-[#E5E7EB] shrink-0">
+        <div className="space-y-2 mb-4">
+          <div className="flex justify-between text-[14px] font-medium text-[#6B7280]">
+            <span>Subtotal</span>
+            <span className="text-[#111827]">{settings.currency_symbol} {getSubtotal().toFixed(2)}</span>
+          </div>
+          {discountPercent > 0 && (
+            <div className="flex justify-between text-[14px] font-medium text-green-700 bg-green-50 px-2 py-1 rounded">
+              <span>Discount ({discountPercent}%)</span>
+              <span>-{settings.currency_symbol} {(getSubtotal() * (discountPercent/100)).toFixed(2)}</span>
+            </div>
+          )}
+          <div className="flex justify-between text-[14px] font-medium text-[#6B7280]">
+            <span>Tax</span>
+            <span className="text-[#111827]">{settings.currency_symbol} {getTaxAmount().toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-[18px] font-bold text-[#111827] pt-2 border-t border-[#E5E7EB]">
+            <span>Total</span>
+            <span>{settings.currency_symbol} {getTotal().toFixed(2)}</span>
+          </div>
+        </div>
+        <button
+          onClick={handleCheckout}
+          disabled={cart.length === 0}
+          className="w-full bg-[#FF6500] hover:bg-[#e65a00] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-[16px] font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center active:scale-[0.98]"
+        >
+          Pay {settings.currency_symbol} {getTotal().toFixed(2)}
+        </button>
+      </div>
+    </>
+  )
+
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-full bg-[#F8FAFC] text-[#111827] overflow-hidden font-sans">
       {!hasActiveShift && <ShiftBlocker />}
-      {/* Main Content */}
+      
+      {/* LEFT SIDE: CATALOG */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* Categories & Search Header */}
-        <div className="bg-white p-4 shadow-sm z-10 flex flex-col lg:flex-row gap-4 items-center justify-between shrink-0">
-          <div className="flex w-full lg:w-auto overflow-x-auto space-x-2 hide-scrollbar">
-          <button
-            onClick={() => setActiveCategory(null)}
-            className={`px-6 py-3 rounded-full whitespace-nowrap font-medium transition-colors ${
-              !activeCategoryId ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            All Items
-          </button>
-          {activeCategories.map(category => (
-            <button
-              key={category.id}
-              onClick={() => setActiveCategory(category.id)}
-              className={`px-6 py-3 rounded-full whitespace-nowrap font-medium transition-colors ${
-                activeCategoryId === category.id ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {category.name}
-            </button>
-          ))}
-          </div>
-
-          <div className="flex w-full lg:w-auto items-center gap-4 shrink-0">
-            <div className="relative flex-1 lg:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors"
-              />
+        {/* HEADER */}
+        <div className="bg-white border-b border-[#E5E7EB] px-4 py-2.5 flex items-center justify-between shrink-0 shadow-sm z-20">
+          <div className="flex items-center space-x-4">
+            <Link href="/" className="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-[#6B7280] transition-colors">
+              <Menu className="w-6 h-6" />
+            </Link>
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-[#FF6500] rounded-lg flex items-center justify-center text-white font-bold text-[16px]">W</div>
+              <h1 className="text-[17px] font-semibold tracking-tight text-[#111827]">Waffle Bay</h1>
             </div>
-            {hasActiveShift && <CloseShiftButton />}
+          </div>
+          
+          <div className="relative">
+            <button 
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="p-2 -mr-2 rounded-lg hover:bg-gray-100 text-[#6B7280] transition-colors"
+            >
+              <MoreVertical className="w-6 h-6" />
+            </button>
+            
+            {showMoreMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-[#E5E7EB] z-50 overflow-hidden py-1">
+                  <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Current Shift</button>
+                  <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Cash Drawer</button>
+                  {hasActiveShift && (
+                    <div onClick={() => setShowMoreMenu(false)}>
+                      <CloseShiftButton className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center" />
+                    </div>
+                  )}
+                  <div className="h-px bg-[#E5E7EB] my-1" />
+                  <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Reports</button>
+                  <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Settings</button>
+                  <div className="h-px bg-[#E5E7EB] my-1" />
+                  <Link href="/login" className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors block">Logout</Link>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Product Grid */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {filteredProducts.map(product => (
+        {/* CATEGORY NAVIGATION */}
+        <div className="bg-white border-b border-[#E5E7EB] shrink-0 z-10">
+          <div className="flex overflow-x-auto hide-scrollbar px-4 py-2.5 space-x-2">
+            <button
+              onClick={() => setActiveCategory(null)}
+              className={`px-4 py-1.5 rounded-full whitespace-nowrap text-[14px] font-medium transition-colors ${
+                !activeCategoryId ? 'bg-[#FF6500] text-white' : 'bg-[#F8FAFC] text-[#6B7280] hover:bg-gray-200'
+              }`}
+            >
+              All Items
+            </button>
+            {activeCategories.map(category => (
               <button
-                key={product.id}
-                onClick={() => handleProductClick(product)}
-                className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-md transition-shadow flex flex-col items-center text-center group active:scale-95"
+                key={category.id}
+                onClick={() => setActiveCategory(category.id)}
+                className={`px-4 py-1.5 rounded-full whitespace-nowrap text-[14px] font-medium transition-colors ${
+                  activeCategoryId === category.id ? 'bg-[#FF6500] text-white' : 'bg-[#F8FAFC] text-[#6B7280] hover:bg-gray-200'
+                }`}
               >
-                <div className="w-24 h-24 bg-orange-100 rounded-full mb-3 flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-colors">
-                  {/* Real images will go here, using a placeholder for now */}
-                  <span className="text-2xl font-bold">{product.name.charAt(0)}</span>
-                </div>
-                <h3 className="font-medium text-gray-900 leading-tight">{product.name}</h3>
-                <p className="text-orange-600 font-semibold mt-1">{settings.currency_symbol} {Number(product.base_price).toFixed(2)}</p>
+                {category.name}
               </button>
             ))}
           </div>
         </div>
+
+        {/* SEARCH BAR */}
+        <div className="px-4 py-3 shrink-0">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7280]" />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-[#E5E7EB] rounded-lg bg-white focus:outline-none focus:border-[#FF6500] focus:ring-1 focus:ring-[#FF6500] transition-colors text-[14px] shadow-sm"
+            />
+          </div>
+        </div>
+
+        {/* PRODUCT GRID */}
+        <div className="flex-1 overflow-y-auto px-4 pb-28 lg:pb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+            {filteredProducts.map(product => {
+              const inCartCount = cart.filter(item => item.product.id === product.id).reduce((sum, item) => sum + item.quantity, 0)
+              
+              return (
+                <button
+                  key={product.id}
+                  onClick={() => handleProductClick(product)}
+                  className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden hover:border-[#FF6500] hover:shadow-sm transition-all flex flex-col active:scale-[0.98] relative text-left group"
+                >
+                  {/* Quantity Badge */}
+                  {inCartCount > 0 && (
+                    <div className="absolute top-2 right-2 bg-[#FF6500] text-white text-[11px] font-bold w-5 h-5 rounded-md flex items-center justify-center z-10 shadow-sm border border-white">
+                      {inCartCount}
+                    </div>
+                  )}
+                  
+                  {/* Image Placeholder */}
+                  <div className="aspect-[4/3] w-full bg-[#F8FAFC] flex items-center justify-center text-[#E5E7EB] border-b border-[#E5E7EB] group-hover:bg-[#FFF1DC] group-hover:text-[#FF6500] transition-colors">
+                    <ImageIcon className="w-8 h-8 opacity-50" />
+                  </div>
+                  
+                  {/* Details */}
+                  <div className="p-3">
+                    <h3 className="font-medium text-[#111827] text-[14px] leading-tight mb-1.5 line-clamp-2">{product.name}</h3>
+                    <p className="text-[#FF6500] font-semibold text-[14px]">{settings.currency_symbol} {Number(product.base_price).toFixed(2)}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Cart Sidebar (Desktop) / Bottom Sheet (Mobile) */}
+      {/* RIGHT SIDE: DESKTOP CART */}
+      <div className="hidden lg:flex w-[360px] xl:w-[400px] bg-white border-l border-[#E5E7EB] flex-col h-full shrink-0 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] z-30">
+        <div className="px-5 py-4 border-b border-[#E5E7EB] bg-white flex justify-between items-center shrink-0">
+          <h2 className="text-[16px] font-semibold text-[#111827] flex items-center">
+            Current Order
+          </h2>
+          <span className="bg-[#FFF1DC] text-[#FF6500] px-2.5 py-0.5 rounded text-[12px] font-bold">{cart.length} items</span>
+        </div>
+        <CartInternals isMobile={false} />
+      </div>
+
+      {/* MOBILE FLOATING CART BUTTON */}
+      <div className="lg:hidden fixed bottom-6 inset-x-4 z-30">
+        <button
+          onClick={() => setShowCart(true)}
+          disabled={cart.length === 0}
+          className="w-full bg-[#FF6500] disabled:bg-gray-300 disabled:shadow-none text-white p-4 rounded-2xl shadow-[0_8px_20px_rgba(255,101,0,0.25)] flex items-center justify-between font-medium active:scale-[0.98] transition-all"
+        >
+          <div className="flex items-center space-x-2">
+            <ShoppingCart className="w-5 h-5" />
+            <span className="text-[15px] font-semibold">{cart.length} item{cart.length !== 1 ? 's' : ''}</span>
+          </div>
+          <span className="font-bold text-[17px]">{settings.currency_symbol} {getTotal().toFixed(2)}</span>
+        </button>
+      </div>
+
+      {/* MOBILE CART MODAL */}
       <div className={`
-        fixed inset-y-0 right-0 z-40 w-full sm:w-96 bg-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out
-        ${showCart ? 'translate-x-0' : 'translate-x-full lg:translate-x-0 lg:relative'}
+        fixed inset-0 z-50 bg-white flex flex-col transform transition-transform duration-300 ease-in-out lg:hidden
+        ${showCart ? 'translate-y-0' : 'translate-y-full'}
       `}>
-        {/* Mobile close button */}
-        <div className="lg:hidden flex justify-between items-center p-4 border-b">
-          <h2 className="text-xl font-bold flex items-center"><ShoppingCart className="mr-2" /> Current Order</h2>
-          <button onClick={() => setShowCart(false)} className="p-2 bg-gray-100 rounded-full">
+        <div className="flex justify-between items-center px-4 py-3 border-b border-[#E5E7EB] bg-white shrink-0">
+          <h2 className="text-[16px] font-semibold text-[#111827] flex items-center">
+            Current Order <span className="ml-2 bg-[#FFF1DC] text-[#FF6500] px-2 py-0.5 rounded text-[11px] font-bold">{cart.length}</span>
+          </h2>
+          <button onClick={() => setShowCart(false)} className="p-2 -mr-2 bg-white hover:bg-gray-50 text-[#6B7280] rounded-full transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
-
-        {/* Desktop Header */}
-        <div className="hidden lg:flex p-6 border-b items-center justify-between bg-orange-500 text-white">
-          <h2 className="text-xl font-bold flex items-center"><ShoppingCart className="mr-2" /> Current Order</h2>
-          <span className="bg-white text-orange-500 px-3 py-1 rounded-full text-sm font-bold">{cart.length} items</span>
-        </div>
-
-        {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-4">
-              <ShoppingCart className="w-16 h-16 opacity-20" />
-              <p>No items in cart</p>
-            </div>
-          ) : (
-            <ul className="space-y-4">
-              {cart.map((item) => (
-                <li key={item.id} className="bg-gray-50 rounded-xl p-3 flex flex-col shadow-sm">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-bold text-gray-900">{item.product.name}</h4>
-                      {item.modifiers.map(mod => (
-                        <p key={mod.id} className="text-xs text-gray-500">+ {mod.name} ({settings.currency_symbol} {Number(mod.price).toFixed(2)})</p>
-                      ))}
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-orange-600">{settings.currency_symbol} {item.itemTotal.toFixed(2)}</p>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center mt-2">
-                    <div className="flex items-center space-x-3 bg-white rounded-lg shadow-sm">
-                      <button onClick={() => updateQuantity(item.id, -1)} className="p-1 text-gray-500 hover:text-orange-500"><Minus className="w-5 h-5" /></button>
-                      <span className="font-bold w-4 text-center">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)} className="p-1 text-gray-500 hover:text-orange-500"><Plus className="w-5 h-5" /></button>
-                    </div>
-                    <button onClick={() => removeFromCart(item.id)} className="text-red-500 text-sm font-medium hover:underline">Remove</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Totals & Checkout */}
-        <div className="p-6 border-t bg-gray-50">
-          <div className="space-y-3 mb-6">
-            <div className="flex justify-between text-gray-600">
-              <span>Subtotal</span>
-              <span>{settings.currency_symbol} {getSubtotal().toFixed(2)}</span>
-            </div>
-            {discountPercent > 0 && (
-              <div className="flex justify-between text-green-600">
-                <span>Discount ({discountPercent}%)</span>
-                <span>-{settings.currency_symbol} {(getSubtotal() * (discountPercent/100)).toFixed(2)}</span>
-              </div>
-            )}
-            <div className="flex justify-between text-gray-600">
-              <span>Tax</span>
-              <span>{settings.currency_symbol} {getTaxAmount().toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-2xl font-bold text-gray-900 pt-3 border-t border-gray-200">
-              <span>Total</span>
-              <span>{settings.currency_symbol} {getTotal().toFixed(2)}</span>
-            </div>
-          </div>
-          <button
-            onClick={handleCheckout}
-            disabled={cart.length === 0}
-            className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-lg font-bold py-4 rounded-2xl shadow-sm transition-colors"
-          >
-            Pay {settings.currency_symbol} {getTotal().toFixed(2)}
-          </button>
-        </div>
+        <CartInternals isMobile={true} />
       </div>
-
-      {/* Mobile Cart Toggle FAB */}
-      {!showCart && (
-        <button
-          onClick={() => setShowCart(true)}
-          className="lg:hidden fixed bottom-6 right-6 bg-orange-500 text-white p-4 rounded-full shadow-2xl z-30 flex items-center justify-center animate-bounce-slight"
-        >
-          <div className="relative">
-            <ShoppingCart className="w-7 h-7" />
-            {cart.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-white text-orange-500 text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-orange-500">
-                {cart.length}
-              </span>
-            )}
-          </div>
-        </button>
-      )}
 
       {/* Modifier Modal */}
       {selectedProduct && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b flex justify-between items-center bg-orange-500 text-white">
-              <h2 className="text-xl font-bold">Customize {selectedProduct.name}</h2>
-              <button onClick={() => setSelectedProduct(null)} className="p-1 hover:bg-orange-600 rounded-full"><X className="w-6 h-6" /></button>
+        <div className="fixed inset-0 bg-gray-900/60 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-lg rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="px-5 py-4 border-b border-[#E5E7EB] flex justify-between items-center bg-white shrink-0">
+              <h2 className="text-[16px] font-semibold text-[#111827]">Customize {selectedProduct.name}</h2>
+              <button onClick={() => setSelectedProduct(null)} className="p-1.5 bg-gray-50 hover:bg-gray-100 text-[#6B7280] rounded-full transition-colors"><X className="w-5 h-5" /></button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1 space-y-6">
+            
+            <div className="p-5 overflow-y-auto flex-1 space-y-6 bg-[#F8FAFC]">
               {selectedProduct.modifier_groups?.map(group => (
-                <div key={group.id}>
-                  <h3 className="font-bold text-gray-900 mb-3">{group.name} {group.is_required && <span className="text-red-500">*</span>}</h3>
-                  <div className="grid grid-cols-1 gap-3">
+                <div key={group.id} className="bg-white p-4 rounded-xl border border-[#E5E7EB] shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-[#111827] text-[14px]">{group.name}</h3>
+                    {group.is_required && <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded">Required</span>}
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5">
                     {group.modifiers?.map(modifier => {
                       const isSelected = selectedModifiers.some(m => m.id === modifier.id)
                       return (
@@ -300,15 +384,19 @@ export function PosApp({
                               }
                             }
                           }}
-                          className={`p-3 rounded-xl border-2 text-left flex justify-between items-center transition-all ${
-                            isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-orange-200'
+                          className={`p-3 rounded-lg border text-left flex justify-between items-center transition-all ${
+                            isSelected ? 'border-[#FF6500] bg-[#FFF1DC]/50 shadow-sm' : 'border-[#E5E7EB] hover:border-[#FF6500] bg-white'
                           }`}
                         >
-                          <div className="flex items-center space-x-2">
-                            <input type="checkbox" checked={isSelected} readOnly className="w-5 h-5 text-orange-500 rounded" />
-                            <span>{modifier.name}</span>
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-4 h-4 rounded flex items-center justify-center border transition-colors ${
+                              isSelected ? 'bg-[#FF6500] border-[#FF6500]' : 'border-gray-300'
+                            }`}>
+                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                            </div>
+                            <span className={`text-[14px] ${isSelected ? 'font-medium text-[#FF6500]' : 'text-[#111827]'}`}>{modifier.name}</span>
                           </div>
-                          <span className="text-sm text-gray-500">+ {settings.currency_symbol} {Number(modifier.price).toFixed(2)}</span>
+                          <span className="text-[13px] font-medium text-[#6B7280]">+{settings.currency_symbol}{Number(modifier.price).toFixed(2)}</span>
                         </button>
                       )
                     })}
@@ -316,12 +404,13 @@ export function PosApp({
                 </div>
               ))}
             </div>
-            <div className="p-6 border-t bg-gray-50">
+            
+            <div className="p-5 border-t border-[#E5E7EB] bg-white shrink-0">
               <button
                 onClick={handleAddWithModifiers}
-                className="w-full bg-orange-500 text-white font-bold py-4 rounded-xl shadow hover:bg-orange-600 flex justify-center items-center"
+                className="w-full bg-[#FF6500] hover:bg-[#e65a00] text-white font-bold py-3.5 rounded-xl shadow-sm transition-all flex justify-center items-center active:scale-[0.98]"
               >
-                <Check className="mr-2" /> Add to Order
+                Add to Order
               </button>
             </div>
           </div>

@@ -151,8 +151,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 relative overflow-y-auto focus:outline-none">
-        {/* Mobile Header (visible only on small screens) */}
+      <main className={`flex-1 relative focus:outline-none ${pathname === '/pos' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        {/* Mobile Header (visible only on small screens, hidden on POS which has its own header) */}
+        {pathname !== '/pos' && (
         <div className="md:hidden bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 sticky top-0 z-40">
           <div className="flex items-center space-x-3">
             <button 
@@ -172,6 +173,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <LogOut className="h-5 w-5" />
           </button>
         </div>
+        )}
         
         {/* Render the specific page */}
         <div className="h-full w-full">

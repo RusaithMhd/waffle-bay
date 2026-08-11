@@ -56,7 +56,7 @@ export function ShiftBlocker() {
   )
 }
 
-export function CloseShiftButton() {
+export function CloseShiftButton({ className }: { className?: string }) {
   const [isProcessing, setIsProcessing] = useState(false)
   const router = useRouter()
 
@@ -77,7 +77,7 @@ export function CloseShiftButton() {
     <button 
       onClick={handleCloseShift}
       disabled={isProcessing}
-      className="flex items-center space-x-2 bg-red-100 text-red-700 px-4 py-2 rounded-xl font-bold hover:bg-red-200 transition-colors disabled:opacity-50"
+      className={className || "flex items-center space-x-2 bg-red-100 text-red-700 px-4 py-2 rounded-xl font-bold hover:bg-red-200 transition-colors disabled:opacity-50"}
     >
       <LogOut className="w-5 h-5" />
       <span>{isProcessing ? 'Closing...' : 'Close Shift'}</span>
