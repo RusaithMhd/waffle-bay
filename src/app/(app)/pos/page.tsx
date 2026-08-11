@@ -2,7 +2,6 @@ import { ProductService } from '@/services/inventory/products'
 import { createClient } from '@/lib/supabase/server'
 import { PosApp } from '@/components/pos/PosApp'
 import { redirect } from 'next/navigation'
-import { checkActiveShift } from '@/app/actions/shifts'
 import { getCurrentUserWithRole } from '@/lib/auth'
 import { hasPermission }          from '@/lib/rbac'
 import { AccessDenied }           from '@/components/AccessDenied'
@@ -43,7 +42,14 @@ export default async function Home() {
     .eq('name', 'Toppings')
     .single()
 
-  const { hasActiveShift } = await checkActiveShift()
+  const { data: activeShift } = await supabase
+    .from('cash_register_shifts')
+    .select('id')
+    .eq('cashier_id', userWithRole.id)
+    .is('closed_at', null)
+    .single()
+
+  const hasActiveShift = !!activeShift
 
   return (
     <div className="h-full">
