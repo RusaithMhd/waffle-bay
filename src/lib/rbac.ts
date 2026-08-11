@@ -107,6 +107,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
   { name: 'Point of Sale',  href: '/pos',        icon: 'Store',           permission: 'pos'             },
   { name: 'Kitchen',        href: '/kitchen',    icon: 'ChefHat',         permission: 'kitchen'         },
   { name: 'Products',       href: '/products',   icon: 'Coffee',          permission: 'products.view'   },
+  { name: 'Toppings',       href: '/toppings',   icon: 'Coffee',          permission: 'products.view'   },
   { name: 'Inventory',      href: '/inventory',  icon: 'Package',         permission: 'inventory'       },
   { name: 'Accounting',     href: '/accounting', icon: 'Calculator',      permission: 'accounting'      },
   { name: 'Settings',       href: '/settings',   icon: 'Settings',        permission: 'settings'        },

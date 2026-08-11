@@ -1,12 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
-import { AddProductButton, ProductRowActions } from './ProductActions'
+import { AddProductButton, ProductRowActions, ProductSearch } from './ProductActions'
 import { redirect } from 'next/navigation'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { getCurrentUserWithRole } from '@/lib/auth'
 import { hasPermission }          from '@/lib/rbac'
 import { AccessDenied }           from '@/components/AccessDenied'
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
   const userWithRole = await getCurrentUserWithRole()
   if (!userWithRole) redirect('/login')
 
@@ -14,7 +18,17 @@ export default async function ProductsPage() {
     return <AccessDenied role={userWithRole.role} />
   }
 
+  // Next.js 15: searchParams is a Promise
+  const resolvedSearchParams = await searchParams
+  const searchQuery = resolvedSearchParams.q || ''
+
   const supabase = await createClient()
+
+  // Build the product query
+  let productsQuery = supabase.from('products').select('*, category:categories(name)').order('name')
+  if (searchQuery) {
+    productsQuery = productsQuery.ilike('name', `%${searchQuery}%`)
+  }
 
   // Fetch settings, products, and categories concurrently
   const [
@@ -23,20 +37,27 @@ export default async function ProductsPage() {
     { data: categories }
   ] = await Promise.all([
     supabase.from('store_settings').select('*').eq('id', 1).single(),
-    supabase.from('products').select('*, category:categories(name)').order('name'),
+    productsQuery,
     supabase.from('categories').select('id, name').order('name')
   ])
 
   const currencySymbol = settings?.currency_symbol || 'Rs.'
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div className="p-8 max-w-7xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Products Menu</h1>
-          <p className="text-gray-500 mt-2">Manage what appears on the POS register.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Products Menu</h1>
+          <p className="text-gray-500 mt-1 text-sm">Manage what appears on the POS register.</p>
         </div>
-        <AddProductButton categories={categories || []} />
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="w-full sm:w-64">
+            <ProductSearch initialQuery={searchQuery} />
+          </div>
+          <div className="w-full sm:w-auto shrink-0">
+            <AddProductButton categories={categories || []} />
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -52,18 +73,18 @@ export default async function ProductsPage() {
 
           <div className="divide-y divide-gray-200 text-gray-700">
             {products?.map((item) => (
-              <div key={item.id} className="p-4 hover:bg-gray-50 transition-colors md:grid md:grid-cols-12 md:gap-4 md:items-center flex flex-col space-y-0">
+              <div key={item.id} className="p-4 md:px-6 md:py-4 hover:bg-gray-50/80 transition-colors md:grid md:grid-cols-12 md:gap-4 md:items-center flex flex-col space-y-0">
                 
                 {/* Product Name & Image (Always visible) */}
-                <div className="md:col-span-5 font-medium text-gray-900 flex items-center space-x-3 mb-3 md:mb-0">
+                <div className="md:col-span-5 font-medium text-gray-900 flex items-center space-x-4 mb-3 md:mb-0">
                   {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0" />
+                    <img src={item.image_url} alt={item.name} className="w-14 h-14 rounded-lg object-cover border border-gray-200 shrink-0 shadow-sm" />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
-                      <span className="text-gray-400 text-xs">No img</span>
+                    <div className="w-14 h-14 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
+                      <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">No Img</span>
                     </div>
                   )}
-                  <span className="text-lg md:text-base font-semibold md:font-medium">{item.name}</span>
+                  <span className="text-lg md:text-[15px] font-semibold text-gray-900 leading-snug">{item.name}</span>
                 </div>
 
                 {/* Mobile Info Box */}
@@ -88,13 +109,13 @@ export default async function ProductsPage() {
                 </div>
 
                 {/* Desktop Columns */}
-                <div className="hidden md:flex md:col-span-2 text-gray-500 text-sm items-center">
+                <div className="hidden md:flex md:col-span-2 text-gray-600 text-[14px] items-center">
                   {/* @ts-ignore */}
                   {item.category?.name || 'Uncategorized'}
                 </div>
 
-                <div className="hidden md:flex md:col-span-2 text-sm items-center">
-                  <span className="font-medium text-gray-900">{currencySymbol} {Number(item.base_price).toFixed(2)}</span>
+                <div className="hidden md:flex md:col-span-2 text-[14px] items-center">
+                  <span className="font-semibold text-gray-900">{currencySymbol} {Number(item.base_price).toFixed(2)}</span>
                 </div>
 
                 <div className="hidden md:flex md:col-span-1 items-center justify-center">

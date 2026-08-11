@@ -17,11 +17,15 @@ import Link from 'next/link'
 export function PosApp({
   categories,
   products,
-  hasActiveShift = true
+  hasActiveShift = true,
+  globalToppingsGroup,
+  userRole
 }: {
   categories: Category[]
   products: Product[]
   hasActiveShift?: boolean
+  globalToppingsGroup?: any
+  userRole?: string | null
 }) {
   const settings = useSettings()
 
@@ -77,8 +81,19 @@ export function PosApp({
   })
 
   const handleProductClick = (product: Product) => {
-    if (product.modifier_groups && product.modifier_groups.length > 0) {
-      setSelectedProduct(product)
+    const hasGlobalToppings = globalToppingsGroup && globalToppingsGroup.modifiers && globalToppingsGroup.modifiers.length > 0
+    const hasProductModifiers = product.modifier_groups && product.modifier_groups.length > 0
+    
+    if (hasProductModifiers || hasGlobalToppings) {
+      let mergedGroups = product.modifier_groups ? [...product.modifier_groups] : []
+      
+      // Filter out the old 'Extra Toppings' group to keep only the global 'Toppings'
+      mergedGroups = mergedGroups.filter(g => g.name !== 'Extra Toppings')
+      
+      if (hasGlobalToppings && !mergedGroups.some(g => g.id === globalToppingsGroup.id)) {
+        mergedGroups.push(globalToppingsGroup)
+      }
+      setSelectedProduct({ ...product, modifier_groups: mergedGroups })
       setSelectedModifiers([])
     } else {
       addToCart(product, [], 1)
@@ -194,9 +209,11 @@ export function PosApp({
         {/* HEADER */}
         <div className="bg-white border-b border-[#E5E7EB] px-4 py-2.5 flex items-center justify-between shrink-0 shadow-sm z-20">
           <div className="flex items-center space-x-4">
-            <Link href="/" className="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-[#6B7280] transition-colors">
-              <Menu className="w-6 h-6" />
-            </Link>
+            {userRole !== 'cashier' && (
+              <Link href="/" className="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-[#6B7280] transition-colors">
+                <Menu className="w-6 h-6" />
+              </Link>
+            )}
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-[#FF6500] rounded-lg flex items-center justify-center text-white font-bold text-[16px]">W</div>
               <h1 className="text-[17px] font-semibold tracking-tight text-[#111827]">Waffle Bay</h1>
@@ -222,9 +239,13 @@ export function PosApp({
                       <CloseShiftButton className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center" />
                     </div>
                   )}
-                  <div className="h-px bg-[#E5E7EB] my-1" />
-                  <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Reports</button>
-                  <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Settings</button>
+                  {userRole !== 'cashier' && (
+                    <>
+                      <div className="h-px bg-[#E5E7EB] my-1" />
+                      <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Reports</button>
+                      <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Settings</button>
+                    </>
+                  )}
                   <div className="h-px bg-[#E5E7EB] my-1" />
                   <Link href="/login" className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors block">Logout</Link>
                 </div>
@@ -428,13 +449,30 @@ export function PosApp({
               ))}
             </div>
             
-            <div className="p-5 border-t border-[#E5E7EB] bg-white shrink-0">
+            <div className="p-5 border-t border-[#E5E7EB] bg-white shrink-0 flex flex-col sm:flex-row gap-3">
               <button
-                onClick={handleAddWithModifiers}
-                className="w-full bg-[#FF6500] hover:bg-[#e65a00] text-white font-bold py-3.5 rounded-xl shadow-sm transition-all flex justify-center items-center active:scale-[0.98]"
+                onClick={() => setSelectedProduct(null)}
+                className="w-full sm:w-1/4 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 font-bold py-3.5 rounded-xl shadow-sm transition-all flex justify-center items-center active:scale-[0.98]"
               >
-                Add to Order
+                Cancel
               </button>
+              <div className="flex w-full sm:w-3/4 gap-3">
+                <button
+                  onClick={handleAddWithModifiers}
+                  className="w-1/2 bg-orange-100 text-orange-700 hover:bg-orange-200 font-bold py-3.5 rounded-xl shadow-sm transition-all flex justify-center items-center active:scale-[0.98]"
+                >
+                  Add Item
+                </button>
+                <button
+                  onClick={() => {
+                    handleAddWithModifiers()
+                    handleCheckout()
+                  }}
+                  className="w-1/2 bg-[#FF6500] hover:bg-[#e65a00] text-white font-bold py-3.5 rounded-xl shadow-sm transition-all flex justify-center items-center active:scale-[0.98]"
+                >
+                  Add & Checkout
+                </button>
+              </div>
             </div>
           </div>
         </div>
