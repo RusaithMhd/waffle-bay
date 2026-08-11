@@ -8,23 +8,18 @@ export default async function AccountingPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single()
+  // Fetch all accounting data concurrently
+  const [
+    { data: settings },
+    { data: plData },
+    { data: zReports }
+  ] = await Promise.all([
+    supabase.from('store_settings').select('*').eq('id', 1).single(),
+    supabase.from('pl_summary_view').select('*').order('period', { ascending: false }).limit(1).single(),
+    supabase.from('z_reports_view').select('*').order('opened_at', { ascending: false }).limit(10)
+  ])
+
   const currencySymbol = settings?.currency_symbol || 'Rs.'
-
-  // Fetch PL dataSummary
-  const { data: plData } = await supabase
-    .from('pl_summary_view')
-    .select('*')
-    .order('period', { ascending: false })
-    .limit(1)
-    .single()
-
-  // Fetch Z-Reports (Recent Shifts)
-  const { data: zReports } = await supabase
-    .from('z_reports_view')
-    .select('*')
-    .order('opened_at', { ascending: false })
-    .limit(10)
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
