@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   description: "Enterprise POS and Management System",
 };
 
+import { Toaster } from 'react-hot-toast';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -17,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="manifest" href="/manifest.json" crossOrigin="use-credentials" />
       </head>
       <body className={inter.className}>
+        <Toaster position="top-right" toastOptions={{ duration: 3000, style: { background: '#333', color: '#fff' } }} />
         <ServiceWorkerRegister />
         {children}
       </body>

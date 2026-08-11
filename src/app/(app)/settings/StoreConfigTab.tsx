@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { updateStoreSettings } from '@/app/actions/settings'
 import { Save } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 export function StoreConfigTab({ settings }: { settings: any }) {
   const [isSaving, setIsSaving] = useState(false)
@@ -14,20 +15,16 @@ export function StoreConfigTab({ settings }: { settings: any }) {
     receipt_header: settings?.receipt_header || 'Welcome to Waffle Bay!',
     receipt_footer: settings?.receipt_footer || 'Thank you for your business!'
   })
-  
-  const [message, setMessage] = useState('')
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
-    setMessage('')
     
     const res = await updateStoreSettings(formData)
     
     if (res.success) {
-      setMessage('Settings saved successfully!')
+      toast.success('Settings saved successfully!')
     } else {
-      setMessage(`Error: ${res.error}`)
+      toast.error(`Error: ${res.error}`)
     }
     setIsSaving(false)
   }
@@ -102,12 +99,6 @@ export function StoreConfigTab({ settings }: { settings: any }) {
             className="w-full p-3 border border-gray-200 rounded-xl focus:border-orange-500 outline-none"
           />
         </div>
-
-        {message && (
-          <p className={`font-medium ${message.includes('Error') ? 'text-red-600' : 'text-green-600'}`}>
-            {message}
-          </p>
-        )}
 
         <button 
           type="submit"

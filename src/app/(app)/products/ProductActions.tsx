@@ -5,6 +5,8 @@ import { Edit2, Trash2, Plus } from 'lucide-react'
 import { deleteProduct } from '@/app/actions/products'
 import { EditProductModal, AddProductModal, Category } from './ProductModals'
 import { useRouter } from 'next/navigation'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
+import { toast } from 'react-hot-toast'
 
 export interface ProductItem {
   id: string
@@ -12,25 +14,23 @@ export interface ProductItem {
   category_id: string
   base_price: number
   is_active: boolean
+  image_url?: string | null
 }
 
 export function ProductRowActions({ item, categories }: { item: ProductItem, categories: Category[] }) {
   const router = useRouter()
-  const [isDeleting, setIsDeleting] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this product? If it has been ordered before, you should just mark it as Inactive.')) return
-    
-    setIsDeleting(true)
     const res = await deleteProduct(item.id)
     
     if (res.success) {
-      setIsDeleting(false)
+      toast.success('Product deleted successfully')
       router.refresh()
+      setShowDeleteConfirm(false)
     } else {
-      alert(res.error || 'Failed to delete product')
-      setIsDeleting(false)
+      toast.error(res.error || 'Failed to delete product')
     }
   }
 
@@ -39,23 +39,34 @@ export function ProductRowActions({ item, categories }: { item: ProductItem, cat
       <div className="flex items-center justify-end space-x-3">
         <button 
           onClick={() => setShowEditModal(true)}
-          disabled={isDeleting}
           title="Edit"
-          className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50"
+          className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 border border-blue-100 md:border-transparent flex-1 md:flex-none flex items-center justify-center"
         >
-          <Edit2 className="w-4 h-4" />
+          <Edit2 className="w-4 h-4 md:mr-0 mr-2" />
+          <span className="md:hidden font-medium text-sm">Edit</span>
         </button>
         <button 
-          onClick={handleDelete}
-          disabled={isDeleting}
+          onClick={() => setShowDeleteConfirm(true)}
           title="Delete"
-          className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+          className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 border border-red-100 md:border-transparent flex-1 md:flex-none flex items-center justify-center"
         >
-          <Trash2 className="w-4 h-4" />
+          <Trash2 className="w-4 h-4 md:mr-0 mr-2" />
+          <span className="md:hidden font-medium text-sm">Delete</span>
         </button>
       </div>
       
       {showEditModal && <EditProductModal item={item} categories={categories} onClose={() => setShowEditModal(false)} />}
+      
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete Product"
+          message={`Are you sure you want to delete "${item.name}"? If it has been ordered before, you should just edit it and mark it as Inactive.`}
+          confirmText="Delete Product"
+          isDestructive={true}
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </>
   )
 }

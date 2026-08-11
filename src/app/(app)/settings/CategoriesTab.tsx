@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createCategory, updateCategory, deleteCategory } from '@/app/actions/settings'
 import { Plus, Edit2, Trash2, CheckCircle2, XCircle } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 export function CategoriesTab({ categories }: { categories: any[] }) {
   const [isProcessing, setIsProcessing] = useState(false)
@@ -35,9 +36,10 @@ export function CategoriesTab({ categories }: { categories: any[] }) {
     }
 
     if (res.success) {
+      toast.success(id ? 'Category updated!' : 'Category created!')
       handleCancel()
     } else {
-      alert(`Error: ${res.error}`)
+      toast.error(`Error: ${res.error}`)
     }
     setIsProcessing(false)
   }
@@ -46,8 +48,10 @@ export function CategoriesTab({ categories }: { categories: any[] }) {
     if (!confirm('Are you sure you want to delete this category?')) return
     setIsProcessing(true)
     const res = await deleteCategory(id)
-    if (!res.success) {
-      alert(`Error: ${res.error}`)
+    if (res.success) {
+      toast.success('Category deleted!')
+    } else {
+      toast.error(`Error: ${res.error}`)
     }
     setIsProcessing(false)
   }

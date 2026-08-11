@@ -31,7 +31,7 @@ export default async function ProductsPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Products Menu</h1>
           <p className="text-gray-500 mt-2">Manage what appears on the POS register.</p>
@@ -40,62 +40,100 @@ export default async function ProductsPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[800px]">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm uppercase tracking-wider">
-                <th className="p-4 font-semibold">Product Name</th>
-                <th className="p-4 font-semibold">Category</th>
-                <th className="p-4 font-semibold">Base Price</th>
-                <th className="p-4 font-semibold text-center">Status</th>
-                <th className="p-4 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 text-gray-700">
-              {products?.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="p-4 font-medium">{item.name}</td>
-                  <td className="p-4 text-sm text-gray-500">
-                    {/* @ts-ignore - Supabase type narrowing */}
-                    {item.category?.name || 'Uncategorized'}
-                  </td>
-                  <td className="p-4 text-sm">{currencySymbol} {Number(item.base_price).toFixed(2)}</td>
-                  <td className="p-4 text-center">
+        <div className="flex flex-col">
+          {/* Header - Hidden on mobile */}
+          <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-gray-50 border-b border-gray-200 text-gray-600 text-sm uppercase tracking-wider font-semibold">
+            <div className="col-span-5">Product</div>
+            <div className="col-span-2">Category</div>
+            <div className="col-span-2">Price</div>
+            <div className="col-span-1 text-center">Status</div>
+            <div className="col-span-2 text-right">Actions</div>
+          </div>
+
+          <div className="divide-y divide-gray-200 text-gray-700">
+            {products?.map((item) => (
+              <div key={item.id} className="p-4 hover:bg-gray-50 transition-colors md:grid md:grid-cols-12 md:gap-4 md:items-center flex flex-col space-y-0">
+                
+                {/* Product Name & Image (Always visible) */}
+                <div className="md:col-span-5 font-medium text-gray-900 flex items-center space-x-3 mb-3 md:mb-0">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                      <span className="text-gray-400 text-xs">No img</span>
+                    </div>
+                  )}
+                  <span className="text-lg md:text-base font-semibold md:font-medium">{item.name}</span>
+                </div>
+
+                {/* Mobile Info Box */}
+                <div className="md:hidden bg-gray-50 rounded-xl p-3.5 space-y-2 border border-gray-100 mb-3">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500 font-medium">Category</span>
+                    {/* @ts-ignore */}
+                    <span className="text-gray-900 font-medium">{item.category?.name || 'Uncategorized'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500 font-medium">Price</span>
+                    <span className="text-gray-900 font-bold">{currencySymbol} {Number(item.base_price).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-500 font-medium">Status</span>
                     {item.is_active ? (
-                      <span className="inline-flex items-center text-green-600 space-x-1 text-sm font-medium">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Active</span>
-                      </span>
+                      <span className="inline-flex items-center text-green-600 font-semibold"><CheckCircle2 className="w-4 h-4 mr-1.5" />Active</span>
                     ) : (
-                      <span className="inline-flex items-center text-gray-400 space-x-1 text-sm font-medium">
-                        <XCircle className="w-4 h-4" />
-                        <span>Inactive</span>
-                      </span>
+                      <span className="inline-flex items-center text-gray-400 font-semibold"><XCircle className="w-4 h-4 mr-1.5" />Inactive</span>
                     )}
-                  </td>
-                  <td className="p-4 text-right">
-                    <ProductRowActions 
-                      categories={categories || []}
-                      item={{
-                        id: item.id,
-                        name: item.name,
-                        category_id: item.category_id,
-                        base_price: Number(item.base_price),
-                        is_active: item.is_active
-                      }} 
-                    />
-                  </td>
-                </tr>
-              ))}
-              {(!products || products.length === 0) && (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-gray-500">
-                    No products found. Start by adding one!
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+
+                {/* Desktop Columns */}
+                <div className="hidden md:flex md:col-span-2 text-gray-500 text-sm items-center">
+                  {/* @ts-ignore */}
+                  {item.category?.name || 'Uncategorized'}
+                </div>
+
+                <div className="hidden md:flex md:col-span-2 text-sm items-center">
+                  <span className="font-medium text-gray-900">{currencySymbol} {Number(item.base_price).toFixed(2)}</span>
+                </div>
+
+                <div className="hidden md:flex md:col-span-1 items-center justify-center">
+                  {item.is_active ? (
+                    <span className="inline-flex items-center text-green-600 space-x-1 text-sm font-medium">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Active</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center text-gray-400 space-x-1 text-sm font-medium">
+                      <XCircle className="w-4 h-4" />
+                      <span>Inactive</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Actions (Always visible) */}
+                <div className="md:col-span-2 flex justify-end space-x-2 pt-1 md:pt-0">
+                  <ProductRowActions 
+                    categories={categories || []}
+                    item={{
+                      id: item.id,
+                      name: item.name,
+                      category_id: item.category_id,
+                      base_price: Number(item.base_price),
+                      is_active: item.is_active,
+                      image_url: item.image_url
+                    }} 
+                  />
+                </div>
+              </div>
+            ))}
+            
+            {(!products || products.length === 0) && (
+              <div className="p-8 text-center text-gray-500">
+                No products found. Start by adding one!
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
