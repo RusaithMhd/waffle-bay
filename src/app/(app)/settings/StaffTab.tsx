@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { updateUserRole }  from '@/app/actions/settings'
 import { createStaffUser, updateStaffUser, deleteStaffUser } from '@/app/actions/staff'
 import { UserCog, Plus, X, Eye, EyeOff, ChefHat, Store, Loader2, CheckCircle, Edit2, Trash2 } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 interface Profile {
   id: string
@@ -53,7 +54,11 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
   const handleRoleChange = async (userId: string, newRoleId: string) => {
     setUpdatingId(userId)
     const res = await updateUserRole(userId, newRoleId)
-    if (!res.success) alert(`Failed to update role: ${res.error}`)
+    if (!res.success) {
+      toast.error(`Failed to update role: ${res.error}`)
+    } else {
+      toast.success('Role updated successfully!')
+    }
     setUpdatingId(null)
   }
 
@@ -96,9 +101,10 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
     setIsProcessing(true)
     const res = await updateStaffUser(userId, editForm.firstName, editForm.lastName)
     if (res.success) {
+      toast.success('Staff details updated!')
       setEditingId(null)
     } else {
-      alert(`Error: ${res.error}`)
+      toast.error(`Error: ${res.error}`)
     }
     setIsProcessing(false)
   }
@@ -107,8 +113,10 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
     if (!confirm('Are you sure you want to delete this user?')) return
     setIsProcessing(true)
     const res = await deleteStaffUser(userId)
-    if (!res.success) {
-      alert(`Error: ${res.error}`)
+    if (res.success) {
+      toast.success('Staff account deleted!')
+    } else {
+      toast.error(`Error: ${res.error}`)
     }
     setIsProcessing(false)
   }
