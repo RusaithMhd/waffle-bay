@@ -84,17 +84,3 @@ export async function closeShift() {
   return { success: true }
 }
 
-export async function checkActiveShift() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { hasActiveShift: false }
-
-  const { data: activeShift } = await supabase
-    .from('cash_register_shifts')
-    .select('id, starting_cash, opened_at')
-    .eq('cashier_id', user.id)
-    .is('closed_at', null)
-    .single()
-
-  return { hasActiveShift: !!activeShift, shift: activeShift }
-}
