@@ -151,9 +151,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main Content Area */}
-      <main className={`flex-1 relative focus:outline-none ${pathname === '/pos' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
-        {/* Mobile Header (visible only on small screens, hidden on POS which has its own header) */}
-        {pathname !== '/pos' && (
+      <main className={`flex-1 relative focus:outline-none ${(pathname === '/pos' || pathname === '/kitchen') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        {/* Mobile Header — hidden on full-screen app pages (POS, Kitchen) which have their own headers */}
+        {pathname !== '/pos' && pathname !== '/kitchen' && (
         <div className="md:hidden bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 sticky top-0 z-40">
           <div className="flex items-center space-x-3">
             <button 

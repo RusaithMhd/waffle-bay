@@ -1,34 +1,38 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { CheckCircle2, Clock, Bell } from 'lucide-react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { createClient }     from '@/lib/supabase/client'
+import { CheckCircle2 }     from 'lucide-react'
+import { KitchenHeader }    from './KitchenHeader'
+import { KitchenFilters, FilterStatus } from './KitchenFilters'
+import { KOTCard, KOTData, OrderStatus, ItemStatus } from './KOTCard'
 
-// Basic types for the kitchen view
-type OrderItem = {
-  id: string
-  product_name_snapshot: string
-  quantity: number
-  fulfillment_status: 'PENDING' | 'DONE'
-  modifiers: { modifier_name_snapshot: string }[]
-}
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-type Order = {
-  id: string
-  order_number: number
-  fulfillment_status: 'NEW' | 'PREPARING' | 'READY' | 'COMPLETED'
-  created_at: string
-  items: OrderItem[]
-}
+type ConnectionStatus = 'ONLINE' | 'OFFLINE' | 'SYNCING'
+
+// ── KitchenApp ────────────────────────────────────────────────────────────────
 
 export function KitchenApp() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabase                                = createClient()
+  const [orders, setOrders]                     = useState<KOTData[]>([])
+  const [loading, setLoading]                   = useState(true)
+  const [filter, setFilter]                     = useState<FilterStatus>('ALL')
+  const [connection, setConnection]             = useState<ConnectionStatus>('ONLINE')
+  const [updatingIds, setUpdatingIds]           = useState<Set<string>>(new Set())
+  const [newOrderId, setNewOrderId]             = useState<string | null>(null)   // for new-order flash
+  const [now, setNow]                           = useState(Date.now())             // single global timer tick
+  const prevOrderIdsRef                         = useRef<Set<string>>(new Set())
 
-  const fetchActiveOrders = async () => {
-    // Fetch orders that are not COMPLETED
-    const { data: ordersData, error: ordersError } = await supabase
+  // ── Single global 1s timer ──────────────────────────────────────────────────
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  // ── Fetch orders ────────────────────────────────────────────────────────────
+  const fetchOrders = useCallback(async () => {
+    const { data, error } = await supabase
       .from('orders')
       .select(`
         id, order_number, fulfillment_status, created_at,
@@ -40,179 +44,207 @@ export function KitchenApp() {
       .in('fulfillment_status', ['NEW', 'PREPARING', 'READY'])
       .order('created_at', { ascending: true })
 
-    if (ordersError) {
-      console.error(ordersError)
+    if (error) {
+      console.error('[Kitchen] fetch error:', error)
       return
     }
 
-    // Map to our local type
-    const mapped: Order[] = ordersData.map((o: any) => ({
-      id: o.id,
-      order_number: o.order_number,
+    const mapped: KOTData[] = (data as any[]).map(o => ({
+      id:                 o.id,
+      order_number:       o.order_number,
       fulfillment_status: o.fulfillment_status,
-      created_at: o.created_at,
-      items: o.order_items.map((i: any) => ({
-        id: i.id,
-        product_name_snapshot: i.product_name_snapshot,
-        quantity: i.quantity,
-        fulfillment_status: i.fulfillment_status,
-        modifiers: i.order_item_modifiers || []
-      }))
+      created_at:         o.created_at,
+      items: (o.order_items as any[]).map(i => ({
+        id:                       i.id,
+        product_name_snapshot:    i.product_name_snapshot,
+        quantity:                 i.quantity,
+        fulfillment_status:       i.fulfillment_status,
+        modifiers:                i.order_item_modifiers || [],
+      })),
     }))
+
+    // Detect new orders for the flash banner
+    const currentIds = new Set(mapped.map(o => o.id))
+    for (const id of currentIds) {
+      if (!prevOrderIdsRef.current.has(id)) {
+        setNewOrderId(id)
+        setTimeout(() => setNewOrderId(null), 4000)
+        break
+      }
+    }
+    prevOrderIdsRef.current = currentIds
 
     setOrders(mapped)
     setLoading(false)
-  }
+  }, [supabase])
 
+  // ── Realtime subscription ───────────────────────────────────────────────────
   useEffect(() => {
-    fetchActiveOrders()
+    fetchOrders()
 
-    // Subscribe to realtime changes on orders and order_items
-    const channel = supabase.channel('kitchen-room')
+    const channel = supabase
+      .channel('kitchen-room-v2')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchActiveOrders()
+        setConnection('SYNCING')
+        fetchOrders().then(() => setConnection('ONLINE'))
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
-        fetchActiveOrders()
+        fetchOrders()
       })
-      .subscribe()
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED')      setConnection('ONLINE')
+        else if (status === 'CLOSED')     setConnection('OFFLINE')
+        else if (status === 'CHANNEL_ERROR') setConnection('OFFLINE')
+      })
+
+    // Offline detection
+    const onOffline = () => setConnection('OFFLINE')
+    const onOnline  = () => { setConnection('SYNCING'); fetchOrders().then(() => setConnection('ONLINE')) }
+    window.addEventListener('offline', onOffline)
+    window.addEventListener('online',  onOnline)
 
     return () => {
       supabase.removeChannel(channel)
+      window.removeEventListener('offline', onOffline)
+      window.removeEventListener('online',  onOnline)
     }
-  }, [])
+  }, [fetchOrders, supabase])
 
-  const updateOrderStatus = async (orderId: string, status: string) => {
-    await supabase.from('orders').update({ fulfillment_status: status }).eq('id', orderId)
-    fetchActiveOrders()
+  // ── Status update ───────────────────────────────────────────────────────────
+  const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
+    setUpdatingIds(prev => new Set(prev).add(orderId))
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ fulfillment_status: status })
+        .eq('id', orderId)
+      if (error) throw error
+
+      // Optimistic update
+      setOrders(prev =>
+        status === 'COMPLETED'
+          ? prev.filter(o => o.id !== orderId)
+          : prev.map(o => o.id === orderId ? { ...o, fulfillment_status: status } : o)
+      )
+    } catch (err) {
+      console.error('[Kitchen] status update failed:', err)
+      fetchOrders() // re-sync on failure
+    } finally {
+      setUpdatingIds(prev => { const s = new Set(prev); s.delete(orderId); return s })
+    }
   }
 
-  const toggleItemStatus = async (itemId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'PENDING' ? 'DONE' : 'PENDING'
-    await supabase.from('order_items').update({ fulfillment_status: newStatus }).eq('id', itemId)
-    fetchActiveOrders()
+  // ── Item toggle ─────────────────────────────────────────────────────────────
+  const handleToggleItem = async (itemId: string, current: ItemStatus) => {
+    const next = current === 'PENDING' ? 'DONE' : 'PENDING'
+    // Optimistic update
+    setOrders(prev => prev.map(o => ({
+      ...o,
+      items: o.items.map(i => i.id === itemId ? { ...i, fulfillment_status: next } : i),
+    })))
+    try {
+      const { error } = await supabase
+        .from('order_items')
+        .update({ fulfillment_status: next })
+        .eq('id', itemId)
+      if (error) throw error
+    } catch (err) {
+      console.error('[Kitchen] item toggle failed:', err)
+      fetchOrders() // re-sync on failure
+    }
   }
 
-  if (loading) {
-    return <div className="text-white p-10">Loading Kitchen Display...</div>
+  // ── Derived state ───────────────────────────────────────────────────────────
+  const counts = {
+    ALL:       orders.length,
+    NEW:       orders.filter(o => o.fulfillment_status === 'NEW').length,
+    PREPARING: orders.filter(o => o.fulfillment_status === 'PREPARING').length,
+    READY:     orders.filter(o => o.fulfillment_status === 'READY').length,
   }
 
+  const visibleOrders = filter === 'ALL'
+    ? orders
+    : orders.filter(o => o.fulfillment_status === filter)
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="h-full flex flex-col">
-      <div className="bg-gray-800 text-white p-4 flex flex-col md:flex-row justify-between items-center border-b border-gray-700 gap-3 md:gap-0">
-        <h1 className="text-2xl font-bold flex items-center">
-          <Bell className="mr-3 text-orange-500" /> Waffle Bay Kitchen
-        </h1>
-        <div className="flex gap-4 text-sm font-medium">
-          <span className="bg-gray-700 px-3 py-1 rounded-full">{orders.length} Active Orders</span>
+    <div className="flex flex-col h-full bg-[#0D1117] overflow-hidden">
+
+      {/* Header */}
+      <KitchenHeader
+        activeOrderCount={orders.length}
+        connectionStatus={connection}
+        onRefresh={fetchOrders}
+      />
+
+      {/* Status Filters */}
+      <KitchenFilters
+        activeFilter={filter}
+        counts={counts}
+        onFilterChange={setFilter}
+      />
+
+      {/* New Order Flash Banner */}
+      {newOrderId && (
+        <div className="mx-4 mt-3 px-4 py-3 bg-blue-500 rounded-xl text-white font-bold text-[14px] flex items-center space-x-2 shadow-lg animate-pulse shrink-0">
+          <span className="w-2 h-2 rounded-full bg-white" />
+          <span>NEW ORDER — #{orders.find(o => o.id === newOrderId)?.order_number}</span>
         </div>
-      </div>
+      )}
 
-      <div className="flex-1 overflow-y-auto md:overflow-y-hidden md:overflow-x-auto p-4 md:p-6 flex flex-col md:flex-row gap-6 items-center md:items-start hide-scrollbar">
-        {orders.map(order => {
-          const isReady = order.fulfillment_status === 'READY'
-          const allItemsDone = order.items.every(i => i.fulfillment_status === 'DONE')
-          
-          return (
-            <div 
-              key={order.id} 
-              className={`shrink-0 w-full max-w-md md:w-[300px] md:min-w-[300px] flex flex-col rounded-2xl shadow-xl overflow-hidden border-2 transition-colors ${
-                isReady ? 'bg-green-50 border-green-500' : 
-                allItemsDone ? 'bg-orange-50 border-orange-400' : 'bg-white border-gray-200'
-              }`}
-            >
-              {/* Ticket Header */}
-              <div className={`p-4 border-b flex justify-between items-center ${
-                isReady ? 'bg-green-500 text-white' : 'bg-gray-100'
-              }`}>
-                <div>
-                  <h2 className={`text-2xl font-black ${isReady ? 'text-white' : 'text-gray-900'}`}>
-                    #{order.order_number}
-                  </h2>
-                  <p className={`text-sm flex items-center ${isReady ? 'text-green-100' : 'text-gray-500'}`}>
-                    <Clock className="w-4 h-4 mr-1" />
-                    {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-                <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  order.fulfillment_status === 'NEW' ? 'bg-blue-100 text-blue-700' :
-                  order.fulfillment_status === 'PREPARING' ? 'bg-orange-100 text-orange-700' :
-                  'bg-white text-green-700'
-                }`}>
-                  {order.fulfillment_status}
-                </div>
-              </div>
-
-              {/* Items List */}
-              <div className="p-4 space-y-3 overflow-y-auto max-h-[50vh] md:flex-1">
-                {order.items.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => toggleItemStatus(item.id, item.fulfillment_status)}
-                    className={`w-full text-left p-3 rounded-xl border transition-all ${
-                      item.fulfillment_status === 'DONE' 
-                        ? 'bg-gray-50 border-gray-200 opacity-60' 
-                        : 'bg-white border-gray-300 shadow-sm hover:border-orange-500'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className={`font-bold ${item.fulfillment_status === 'DONE' ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                        <span className="text-orange-500 mr-2">{item.quantity}x</span>
-                        {item.product_name_snapshot}
-                      </div>
-                      {item.fulfillment_status === 'DONE' && <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 ml-2" />}
-                    </div>
-                    {item.modifiers.map((mod, idx) => (
-                      <div key={idx} className={`text-sm ml-6 mt-1 ${item.fulfillment_status === 'DONE' ? 'line-through text-gray-400' : 'text-gray-600'}`}>
-                        + {mod.modifier_name_snapshot}
-                      </div>
-                    ))}
-                  </button>
-                ))}
-              </div>
-
-              {/* Ticket Footer Actions */}
-              <div className="p-4 bg-gray-50 border-t flex flex-col gap-2">
-                {!isReady ? (
-                  <button
-                    onClick={() => updateOrderStatus(order.id, 'READY')}
-                    className={`w-full py-3 rounded-xl font-bold transition-colors ${
-                      allItemsDone 
-                        ? 'bg-orange-500 text-white hover:bg-orange-600 shadow-md animate-pulse' 
-                        : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
-                    }`}
-                  >
-                    Mark Ready
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => updateOrderStatus(order.id, 'COMPLETED')}
-                    className="w-full py-3 rounded-xl font-bold bg-green-600 text-white hover:bg-green-700 shadow-md"
-                  >
-                    Complete & Clear
-                  </button>
-                )}
-                
-                {order.fulfillment_status === 'NEW' && (
-                  <button
-                    onClick={() => updateOrderStatus(order.id, 'PREPARING')}
-                    className="w-full py-2 rounded-xl font-bold text-sm bg-blue-100 text-blue-700 hover:bg-blue-200"
-                  >
-                    Start Preparing
-                  </button>
-                )}
-              </div>
+      {/* Main Board */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+        {loading ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-10 h-10 border-4 border-[#FF6500] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-[#6B7280] font-medium">Loading Kitchen Display...</p>
             </div>
-          )
-        })}
-
-        {orders.length === 0 && (
-          <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
-            <CheckCircle2 className="w-24 h-24 mb-4 opacity-20" />
-            <h2 className="text-2xl font-bold opacity-50">Kitchen is all caught up!</h2>
+          </div>
+        ) : visibleOrders.length === 0 ? (
+          /* Empty State */
+          <div className="h-full flex flex-col items-center justify-center text-center px-8">
+            <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+            </div>
+            <h2 className="text-[20px] font-black text-white mb-1">
+              {filter === 'ALL' ? 'All Orders Clear!' : `No ${filter} Orders`}
+            </h2>
+            <p className="text-[#6B7280] text-[14px]">
+              {filter === 'ALL'
+                ? 'Kitchen is up to date. Waiting for new orders.'
+                : `No orders are currently in ${filter.toLowerCase()} status.`}
+            </p>
+          </div>
+        ) : (
+          /* KOT Grid:
+             Mobile:           1 column
+             Tablet portrait:  2 columns (sm: 640px+)
+             Tablet landscape: 3 columns (lg: 1024px+)
+             Desktop wide:     4 columns (xl: 1280px+)
+          */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 items-start">
+            {visibleOrders.map(order => (
+              <KOTCard
+                key={order.id}
+                order={order}
+                now={now}
+                onUpdateStatus={handleUpdateStatus}
+                onToggleItem={handleToggleItem}
+                isUpdating={updatingIds.has(order.id)}
+              />
+            ))}
           </div>
         )}
       </div>
+
+      {/* Offline overlay */}
+      {connection === 'OFFLINE' && (
+        <div className="absolute bottom-4 inset-x-4 bg-red-600 text-white px-4 py-3 rounded-xl font-bold text-[14px] flex items-center space-x-2 shadow-2xl z-50">
+          <span>⚠</span>
+          <span>OFFLINE — Orders may not be up to date. Reconnecting...</span>
+        </div>
+      )}
     </div>
   )
 }

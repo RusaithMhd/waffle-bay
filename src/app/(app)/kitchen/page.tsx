@@ -13,8 +13,8 @@ export default async function KitchenPage() {
 
   // Realtime app runs entirely on the client
   return (
-    <main className="h-screen bg-gray-900 overflow-hidden">
+    <div className="h-full">
       <KitchenApp />
-    </main>
+    </div>
   )
 }
