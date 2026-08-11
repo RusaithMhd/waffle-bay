@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Product, Category, ModifierGroup, Modifier } from '@/types'
 import { usePosStore } from '@/stores/usePosStore'
-import { ShoppingCart, Plus, Minus, X, Check } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, Check, Search } from 'lucide-react'
 import { PaymentModal } from './PaymentModal'
 import { useEffect } from 'react'
 import { SyncService } from '@/services/sync'
@@ -40,6 +40,7 @@ export function PosApp({
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedModifiers, setSelectedModifiers] = useState<Modifier[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
   
   // Modals / Toggles
   const [showCart, setShowCart] = useState(false)
@@ -67,9 +68,11 @@ export function PosApp({
   const activeCategories = localCategories?.length ? localCategories : categories
   const activeProducts = localProducts?.length ? localProducts : products
 
-  const filteredProducts = activeCategoryId
-    ? activeProducts.filter(p => p.category_id === activeCategoryId)
-    : activeProducts
+  const filteredProducts = activeProducts.filter(p => {
+    const matchesCategory = activeCategoryId ? p.category_id === activeCategoryId : true
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesCategory && matchesSearch
+  })
 
   const handleProductClick = (product: Product) => {
     if (product.modifier_groups && product.modifier_groups.length > 0) {
@@ -103,9 +106,9 @@ export function PosApp({
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* Categories Header */}
-        <div className="bg-white p-4 shadow-sm z-10 flex items-center justify-between shrink-0">
-          <div className="flex overflow-x-auto space-x-2 hide-scrollbar">
+        {/* Categories & Search Header */}
+        <div className="bg-white p-4 shadow-sm z-10 flex flex-col lg:flex-row gap-4 items-center justify-between shrink-0">
+          <div className="flex w-full lg:w-auto overflow-x-auto space-x-2 hide-scrollbar">
           <button
             onClick={() => setActiveCategory(null)}
             className={`px-6 py-3 rounded-full whitespace-nowrap font-medium transition-colors ${
@@ -126,7 +129,18 @@ export function PosApp({
             </button>
           ))}
           </div>
-          <div className="ml-4 shrink-0">
+
+          <div className="flex w-full lg:w-auto items-center gap-4 shrink-0">
+            <div className="relative flex-1 lg:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors"
+              />
+            </div>
             {hasActiveShift && <CloseShiftButton />}
           </div>
         </div>
