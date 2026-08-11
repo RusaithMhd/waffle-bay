@@ -60,7 +60,26 @@ INSERT INTO public.modifier_recipes (modifier_id, ingredient_id, quantity_requir
 ('00000000-0000-0000-0000-000000000000', 'cccc3333-3333-3333-3333-333333333333', 50) -- 50g Strawberries
 ON CONFLICT DO NOTHING;
 
--- 8. Create Test User (admin@wafflebay.com / password123)
+-- 8. Fix Roles Constraint and Add Proper Roles
+-- First, drop the old constraint so we can update the rows
+ALTER TABLE public.roles DROP CONSTRAINT IF EXISTS roles_name_check;
+
+-- Map any existing uppercase roles to lowercase
+UPDATE public.roles SET name = 'admin' WHERE name = 'OWNER';
+UPDATE public.roles SET name = 'manager' WHERE name = 'MANAGER';
+UPDATE public.roles SET name = 'cashier' WHERE name = 'CASHIER';
+
+-- Now add the new constraint
+ALTER TABLE public.roles ADD CONSTRAINT roles_name_check CHECK (name IN ('admin', 'manager', 'cashier', 'chef'));
+
+INSERT INTO public.roles (name, description) VALUES
+('admin', 'Full system administration access'),
+('manager', 'Store operations and management'),
+('cashier', 'Point of sale operations'),
+('chef', 'Kitchen display operations')
+ON CONFLICT (name) DO NOTHING;
+
+-- 9. Create Test Admin User (admin@wafflebay.com / password123)
 INSERT INTO auth.users (
   instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, recovery_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
 ) VALUES (
@@ -95,5 +114,15 @@ INSERT INTO auth.identities (
   now(),
   now()
 ) ON CONFLICT DO NOTHING;
+
+-- 10. Link Admin User to Profiles and Roles
+INSERT INTO public.profiles (id, email, first_name, last_name)
+VALUES ('d47da153-65aa-4eb6-a537-8fb2f3e8b0fb', 'admin@wafflebay.com', 'Super', 'Admin')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.user_roles (user_id, role_id)
+SELECT 'd47da153-65aa-4eb6-a537-8fb2f3e8b0fb', id 
+FROM public.roles WHERE name = 'admin'
+ON CONFLICT (user_id, role_id) DO NOTHING;
 
 COMMIT;

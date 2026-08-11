@@ -12,24 +12,17 @@ export interface CreateStaffPayload {
   roleId: string
 }
 
-/**
- * Creates a new Supabase auth user, sets their profile, and assigns a role.
- * Requires SUPABASE_SERVICE_ROLE_KEY to be set in env.
- * Only callable by an authenticated (admin) user.
- */
 export async function createStaffUser(payload: CreateStaffPayload) {
-  // Verify the calling user is authenticated (basic admin check)
   const supabase = await createClient()
   const { data: { user: caller } } = await supabase.auth.getUser()
   if (!caller) return { success: false, error: 'Unauthorized' }
 
   const admin = createAdminClient()
 
-  // 1. Create the auth user
   const { data: createdAuth, error: authError } = await admin.auth.admin.createUser({
     email: payload.email,
     password: payload.password,
-    email_confirm: true,          // auto-confirm so they can log in immediately
+    email_confirm: true,
     user_metadata: {
       first_name: payload.firstName,
       last_name: payload.lastName,
@@ -42,7 +35,6 @@ export async function createStaffUser(payload: CreateStaffPayload) {
 
   const newUserId = createdAuth.user.id
 
-  // 2. Upsert profile (the DB trigger may already create one, this is a safety net)
   await admin.from('profiles').upsert({
     id: newUserId,
     email: payload.email,
@@ -50,18 +42,66 @@ export async function createStaffUser(payload: CreateStaffPayload) {
     last_name: payload.lastName,
   }, { onConflict: 'id' })
 
-  // 3. Assign role
   const { error: roleError } = await admin.from('user_roles').upsert({
     user_id: newUserId,
     role_id: payload.roleId,
   }, { onConflict: 'user_id' })
 
   if (roleError) {
-    // Fallback: delete + insert if upsert fails (no unique on user_id alone)
     await admin.from('user_roles').delete().eq('user_id', newUserId)
     await admin.from('user_roles').insert({ user_id: newUserId, role_id: payload.roleId })
   }
 
   revalidatePath('/settings')
   return { success: true, userId: newUserId }
+}
+
+export async function updateStaffUser(userId: string, firstName: string, lastName: string) {
+  const supabase = await createClient()
+  const { data: { user: caller } } = await supabase.auth.getUser()
+  if (!caller) return { success: false, error: 'Unauthorized' }
+
+  const admin = createAdminClient()
+
+  const { error: authError } = await admin.auth.admin.updateUserById(userId, {
+    user_metadata: {
+      first_name: firstName,
+      last_name: lastName,
+    }
+  })
+
+  if (authError) return { success: false, error: authError.message }
+
+  const { error: profileError } = await admin.from('profiles').update({
+    first_name: firstName,
+    last_name: lastName
+  }).eq('id', userId)
+
+  if (profileError) return { success: false, error: profileError.message }
+
+  revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function deleteStaffUser(userId: string) {
+  const supabase = await createClient()
+  const { data: { user: caller } } = await supabase.auth.getUser()
+  if (!caller) return { success: false, error: 'Unauthorized' }
+
+  if (caller.id === userId) {
+    return { success: false, error: 'Cannot delete your own account' }
+  }
+
+  const admin = createAdminClient()
+
+  // Clean up related records (just in case cascade is not on)
+  await admin.from('user_roles').delete().eq('user_id', userId)
+  await admin.from('profiles').delete().eq('id', userId)
+
+  const { error } = await admin.auth.admin.deleteUser(userId)
+  
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/settings')
+  return { success: true }
 }

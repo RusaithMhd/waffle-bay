@@ -23,7 +23,8 @@ export async function getCurrentUserWithRole(): Promise<UserWithRole | null> {
     .from('user_roles')
     .select('roles(name)')
     .eq('user_id', user.id)
-    .single()
+    .limit(1)
+    .maybeSingle()
 
   const roleName = (userRoleRow?.roles as any)?.name?.toLowerCase() as AppRole | null
 
