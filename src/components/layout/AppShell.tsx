@@ -12,6 +12,7 @@ import { useRouter }     from 'next/navigation'
 import { useSettings }   from '@/components/SettingsProvider'
 import { AppRole, getNavItemsForRole, NavItem } from '@/lib/rbac'
 import { RoleBadge }     from '@/components/RoleBadge'
+import { logout }        from '@/app/login/actions'
 
 // Map icon names from rbac.ts to actual Lucide components
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -33,8 +34,7 @@ export function AppShell({ children, userRole }: AppShellProps) {
   const navItems: NavItem[] = getNavItemsForRole(userRole)
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+    await logout()
   }
 
   const isFullScreen = pathname === '/pos' || pathname === '/kitchen'

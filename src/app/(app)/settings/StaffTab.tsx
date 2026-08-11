@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { updateUserRole }  from '@/app/actions/settings'
-import { createStaffUser } from '@/app/actions/staff'
-import { UserCog, Plus, X, Eye, EyeOff, ChefHat, Store, Loader2, CheckCircle } from 'lucide-react'
+import { createStaffUser, updateStaffUser, deleteStaffUser } from '@/app/actions/staff'
+import { UserCog, Plus, X, Eye, EyeOff, ChefHat, Store, Loader2, CheckCircle, Edit2, Trash2 } from 'lucide-react'
 
 interface Profile {
   id: string
@@ -36,6 +36,11 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
   const [creating, setCreating]       = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [createSuccess, setCreateSuccess] = useState(false)
+
+  // Edit state
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '' })
+  const [isProcessing, setIsProcessing] = useState(false)
 
   const [form, setForm] = useState({
     firstName: '',
@@ -76,6 +81,36 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
     setCreating(false)
     setForm({ firstName: '', lastName: '', email: '', password: '', roleId: '' })
     setTimeout(() => { setCreateSuccess(false); setShowCreate(false) }, 2000)
+  }
+
+  const startEdit = (user: Profile) => {
+    setEditingId(user.id)
+    setEditForm({
+      firstName: user.first_name || '',
+      lastName: user.last_name || ''
+    })
+  }
+
+  const handleEditSave = async (userId: string) => {
+    if (!editForm.firstName) return
+    setIsProcessing(true)
+    const res = await updateStaffUser(userId, editForm.firstName, editForm.lastName)
+    if (res.success) {
+      setEditingId(null)
+    } else {
+      alert(`Error: ${res.error}`)
+    }
+    setIsProcessing(false)
+  }
+
+  const handleDelete = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user?')) return
+    setIsProcessing(true)
+    const res = await deleteStaffUser(userId)
+    if (!res.success) {
+      alert(`Error: ${res.error}`)
+    }
+    setIsProcessing(false)
   }
 
   // Find display role name
@@ -119,7 +154,7 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
           )}
 
           <form onSubmit={handleCreate} className="space-y-4">
-            {/* Role Selection — shown first so it's clear what type of user you're creating */}
+            {/* Role Selection */}
             <div>
               <label className="block text-[13px] font-semibold text-gray-700 mb-2">Staff Role *</label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -234,66 +269,112 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
       )}
 
       {/* Staff List */}
-      <div className="overflow-x-auto mt-2">
-        <table className="w-full text-left border-collapse min-w-[600px]">
-          <thead>
-            <tr className="border-b border-gray-100 text-gray-500 text-[12px] uppercase tracking-wider">
-              <th className="px-6 py-3 font-semibold">Staff Member</th>
-              <th className="px-6 py-3 font-semibold">Email</th>
-              <th className="px-6 py-3 font-semibold">Role</th>
-              <th className="px-6 py-3 font-semibold">Change Role</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50 text-[14px]">
-            {staff.map((user) => {
-              const roleName = getRoleName(user.role_id)
-              const roleKey  = roleName?.toLowerCase() || ''
+      <div className="mt-2 flex flex-col">
+        {/* Header - Hidden on mobile */}
+        <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 border-b border-gray-100 text-gray-500 text-[12px] uppercase tracking-wider font-semibold">
+          <div className="col-span-3">Staff Member</div>
+          <div className="col-span-3">Email</div>
+          <div className="col-span-2">Role</div>
+          <div className="col-span-2">Change Role</div>
+          <div className="col-span-2 text-right">Actions</div>
+        </div>
+
+        <div className="divide-y divide-gray-50 text-[14px]">
+          {staff.map((user) => {
+            const roleName = getRoleName(user.role_id)
+            const roleKey  = roleName?.toLowerCase() || ''
+            
+            if (editingId === user.id) {
               return (
-                <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-[13px] shrink-0">
-                        {(user.first_name || user.email).charAt(0).toUpperCase()}
-                      </div>
-                      <span>{user.first_name || 'Unknown'} {user.last_name || ''}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">{user.email}</td>
-                  <td className="px-6 py-4">
-                    {roleName ? (
-                      <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[12px] font-bold ${ROLE_COLORS[roleKey] || 'bg-gray-100 text-gray-600'}`}>
-                        {ROLE_ICONS[roleKey]}
-                        <span className="capitalize">{roleName}</span>
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-[12px]">No role</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <select
-                      value={user.role_id || ''}
-                      onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                      disabled={updatingId === user.id}
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-[13px] focus:outline-none focus:border-[#FF6500] bg-white disabled:opacity-50 min-w-[130px]"
-                    >
-                      <option value="" disabled>No Role</option>
-                      {roles.map(r => (
-                        <option key={r.id} value={r.id} className="capitalize">{r.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
+                <div key={user.id} className="p-4 md:px-6 md:py-4 bg-orange-50 md:grid md:grid-cols-12 md:gap-4 md:items-center flex flex-col space-y-3 md:space-y-0">
+                  <div className="md:col-span-3 space-y-2">
+                    <label className="text-xs font-semibold text-gray-500 uppercase md:hidden block">First Name</label>
+                    <input 
+                      type="text" required
+                      value={editForm.firstName} onChange={e => setEditForm({ ...editForm, firstName: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded outline-none"
+                    />
+                    <label className="text-xs font-semibold text-gray-500 uppercase md:hidden block mt-2">Last Name</label>
+                    <input 
+                      type="text"
+                      value={editForm.lastName} onChange={e => setEditForm({ ...editForm, lastName: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded outline-none"
+                    />
+                  </div>
+                  <div className="md:col-span-3 text-gray-500 hidden md:block">{user.email}</div>
+                  <div className="md:col-span-2 hidden md:block">
+                    <span className="text-gray-400 text-[12px]">Role change disabled while editing</span>
+                  </div>
+                  <div className="md:col-span-2 hidden md:block"></div>
+                  <div className="md:col-span-2 flex justify-end space-x-2 mt-2 md:mt-0">
+                    <button onClick={() => handleEditSave(user.id)} disabled={isProcessing || !editForm.firstName} className="text-green-600 font-medium px-4 py-2 rounded hover:bg-green-100 disabled:opacity-50 w-full md:w-auto text-center border border-green-200 md:border-none">Save</button>
+                    <button onClick={() => setEditingId(null)} disabled={isProcessing} className="text-gray-600 font-medium px-4 py-2 rounded hover:bg-gray-200 disabled:opacity-50 w-full md:w-auto text-center border border-gray-200 md:border-none">Cancel</button>
+                  </div>
+                </div>
               )
-            })}
-            {staff.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-6 py-10 text-center text-gray-400">
-                  No staff members yet. Create one above.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            }
+
+            return (
+              <div key={user.id} className="p-4 md:px-6 md:py-4 hover:bg-gray-50 transition-colors md:grid md:grid-cols-12 md:gap-4 md:items-center flex flex-col space-y-3 md:space-y-0">
+                <div className="md:col-span-3 font-medium text-gray-900">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 md:w-8 md:h-8 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold text-[13px] shrink-0">
+                      {(user.first_name || user.email).charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <span className="block text-base md:text-sm">{user.first_name || 'Unknown'} {user.last_name || ''}</span>
+                      {/* Show email under name on mobile */}
+                      <span className="block text-gray-500 text-xs md:hidden">{user.email}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="md:col-span-3 text-gray-500 hidden md:block">
+                  {user.email}
+                </div>
+                <div className="md:col-span-2 flex items-center">
+                  <span className="text-xs font-semibold text-gray-500 uppercase md:hidden block w-24">Role:</span>
+                  {roleName ? (
+                    <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[12px] font-bold ${ROLE_COLORS[roleKey] || 'bg-gray-100 text-gray-600'}`}>
+                      {ROLE_ICONS[roleKey]}
+                      <span className="capitalize">{roleName}</span>
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-[12px]">No role</span>
+                  )}
+                </div>
+                <div className="md:col-span-2 flex items-center">
+                  <span className="text-xs font-semibold text-gray-500 uppercase md:hidden block w-24">Change:</span>
+                  <select
+                    value={user.role_id || ''}
+                    onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                    disabled={updatingId === user.id || editingId !== null}
+                    className="w-full md:w-auto px-3 py-2 border border-gray-200 rounded-lg text-[13px] focus:outline-none focus:border-[#FF6500] bg-white disabled:opacity-50 min-w-[130px]"
+                  >
+                    <option value="" disabled>No Role</option>
+                    {roles.map(r => (
+                      <option key={r.id} value={r.id} className="capitalize">{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="md:col-span-2 flex justify-end space-x-2 mt-3 md:mt-0 pt-3 md:pt-0 border-t border-gray-100 md:border-none">
+                  <button onClick={() => startEdit(user)} disabled={isProcessing || editingId !== null} className="flex-1 md:flex-none flex items-center justify-center text-blue-600 hover:text-blue-800 py-2 md:p-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 border border-blue-100 md:border-transparent">
+                    <Edit2 className="w-4 h-4 md:mr-0 mr-2" />
+                    <span className="md:hidden font-medium text-sm">Edit</span>
+                  </button>
+                  <button onClick={() => handleDelete(user.id)} disabled={isProcessing || editingId !== null} className="flex-1 md:flex-none flex items-center justify-center text-red-600 hover:text-red-800 py-2 md:p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 border border-red-100 md:border-transparent">
+                    <Trash2 className="w-4 h-4 md:mr-0 mr-2" />
+                    <span className="md:hidden font-medium text-sm">Delete</span>
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+          {staff.length === 0 && (
+            <div className="px-6 py-10 text-center text-gray-400">
+              No staff members yet. Create one above.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

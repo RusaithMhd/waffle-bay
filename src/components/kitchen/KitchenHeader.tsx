@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Store, Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { Store, Wifi, WifiOff, RefreshCw, LogOut } from 'lucide-react'
+import { logout } from '@/app/login/actions'
 
 interface KitchenHeaderProps {
   activeOrderCount: number
@@ -18,6 +19,10 @@ export function KitchenHeader({ activeOrderCount, connectionStatus, onRefresh }:
   }, [])
 
   const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+  const handleSignOut = async () => {
+    await logout()
+  }
 
   return (
     <div className="bg-[#111827] border-b border-[#374151] px-4 py-3 flex items-center justify-between shrink-0 z-20">
@@ -70,6 +75,15 @@ export function KitchenHeader({ activeOrderCount, connectionStatus, onRefresh }:
           aria-label="Refresh orders"
         >
           <RefreshCw className="w-4 h-4" />
+        </button>
+
+        {/* Logout */}
+        <button
+          onClick={handleSignOut}
+          className="p-2 rounded-lg text-[#6B7280] hover:text-red-400 hover:bg-[#374151] transition-colors"
+          aria-label="Sign Out"
+        >
+          <LogOut className="w-4 h-4" />
         </button>
       </div>
     </div>
