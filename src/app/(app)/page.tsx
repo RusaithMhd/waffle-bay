@@ -2,15 +2,22 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { DollarSign, ShoppingBag, PackageOpen, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
+import { getCurrentUserWithRole } from '@/lib/auth'
+import { ROLE_HOME, hasPermission } from '@/lib/rbac'
 
 export default async function DashboardPage() {
+  const userWithRole = await getCurrentUserWithRole()
+  if (!userWithRole) redirect('/login')
+
+  const { role } = userWithRole
+
+  // Restricted roles should not reach the dashboard — redirect to their designated screen
+  if (role && !hasPermission(role, 'dashboard')) {
+    redirect(ROLE_HOME[role] || '/login')
+  }
+
   const supabase = await createClient()
-
-  // Ensure auth
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const userName = user.email?.split('@')[0] || 'Admin'
+  const userName = userWithRole.email?.split('@')[0] || 'User'
   const formattedName = userName.charAt(0).toUpperCase() + userName.slice(1)
 
   const today = new Date()

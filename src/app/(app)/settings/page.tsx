@@ -4,15 +4,23 @@ import { StoreConfigTab } from './StoreConfigTab'
 import { CategoriesTab } from './CategoriesTab'
 import { StaffTab } from './StaffTab'
 import { SettingsTabs } from './SettingsTabs'
+import { getCurrentUserWithRole } from '@/lib/auth'
+import { hasPermission }          from '@/lib/rbac'
+import { AccessDenied }           from '@/components/AccessDenied'
 
 export default async function SettingsPage({
   searchParams
 }: {
   searchParams: Promise<{ tab?: string }>
 }) {
+  const userWithRole = await getCurrentUserWithRole()
+  if (!userWithRole) redirect('/login')
+
+  if (!hasPermission(userWithRole.role, 'settings')) {
+    return <AccessDenied role={userWithRole.role} />
+  }
+
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
 
   const { tab } = await searchParams
   const activeTab = tab || 'store'

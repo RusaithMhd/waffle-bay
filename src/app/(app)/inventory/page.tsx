@@ -2,12 +2,19 @@ import { createClient } from '@/lib/supabase/server'
 import { AddIngredientButton, InventoryRowActions } from './InventoryActions'
 import { redirect } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
+import { getCurrentUserWithRole } from '@/lib/auth'
+import { hasPermission }          from '@/lib/rbac'
+import { AccessDenied }           from '@/components/AccessDenied'
 
 export default async function InventoryPage() {
-  const supabase = await createClient()
+  const userWithRole = await getCurrentUserWithRole()
+  if (!userWithRole) redirect('/login')
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!hasPermission(userWithRole.role, 'inventory')) {
+    return <AccessDenied role={userWithRole.role} />
+  }
+
+  const supabase = await createClient()
 
   // Fetch settings and inventory concurrently
   const [
