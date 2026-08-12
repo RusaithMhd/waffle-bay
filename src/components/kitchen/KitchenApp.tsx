@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient }     from '@/lib/supabase/client'
-import { CheckCircle2 }     from 'lucide-react'
+import { CheckCircle2, Volume2, VolumeX } from 'lucide-react'
 import { KitchenHeader }    from './KitchenHeader'
 import { KitchenFilters, FilterStatus } from './KitchenFilters'
 import { KOTCard, KOTData, OrderStatus, ItemStatus } from './KOTCard'
@@ -24,7 +24,56 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
   const [newOrderId, setNewOrderId]             = useState<string | null>(null)   // for new-order flash
   const [now, setNow]                           = useState(Date.now())             // single global timer tick
   const [selectedDate, setSelectedDate]         = useState(getBusinessDate(new Date()))
+  const [muted, setMuted]                       = useState(false)
   const prevOrderIdsRef                         = useRef<Set<string>>(new Set())
+  const audioCtxRef                             = useRef<AudioContext | null>(null)
+  const mutedRef                                = useRef(false)
+
+  // Keep mutedRef in sync so playKitchenAlert always reads the latest value
+  useEffect(() => { mutedRef.current = muted }, [muted])
+
+  // ── Kitchen Alert Sound (Web Audio API — no audio file needed) ──────────────
+  const playKitchenAlert = useCallback(() => {
+    if (mutedRef.current) return
+    try {
+      // Re-use or lazily create AudioContext (browsers require user-gesture first;
+      // the kitchen screen is always open by staff so this fires fine on interaction)
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new AudioContext()
+      }
+      const ctx = audioCtxRef.current
+      if (ctx.state === 'suspended') ctx.resume()
+
+      const now = ctx.currentTime
+
+      // Two-tone "ding dong" kitchen chime
+      const tones = [
+        { freq: 880, start: 0,    dur: 0.18 },  // high ding
+        { freq: 660, start: 0.22, dur: 0.22 },  // mid dong
+        { freq: 880, start: 0.48, dur: 0.18 },  // high ding again
+        { freq: 550, start: 0.70, dur: 0.30 },  // low resonance
+      ]
+
+      tones.forEach(({ freq, start, dur }) => {
+        const osc  = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(freq, now + start)
+
+        gain.gain.setValueAtTime(0, now + start)
+        gain.gain.linearRampToValueAtTime(0.55, now + start + 0.02)  // fast attack
+        gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur) // decay
+
+        osc.start(now + start)
+        osc.stop(now + start + dur + 0.05)
+      })
+    } catch (e) {
+      console.warn('[Kitchen] Audio alert failed:', e)
+    }
+  }, [])
 
   // ── Single global 1s timer ──────────────────────────────────────────────────
   useEffect(() => {
@@ -82,12 +131,17 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
       })),
     }))
 
-    // Detect new orders for the flash banner
+    // Detect new orders → flash banner + sound alert
     const currentIds = new Set(mapped.map(o => o.id))
     for (const id of currentIds) {
-      if (!prevOrderIdsRef.current.has(id)) {
+      if (prevOrderIdsRef.current.size > 0 && !prevOrderIdsRef.current.has(id)) {
+        // Only play sound if this isn't the very first load (prevOrderIdsRef has data)
+        playKitchenAlert()
         setNewOrderId(id)
         setTimeout(() => setNewOrderId(null), 4000)
+        break
+      } else if (prevOrderIdsRef.current.size === 0) {
+        // First load — just track but don't alert
         break
       }
     }
@@ -95,7 +149,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
 
     setOrders(mapped)
     setLoading(false)
-  }, [supabase, selectedDate])
+  }, [supabase, selectedDate, playKitchenAlert])
 
   // ── Realtime subscription ───────────────────────────────────────────────────
   useEffect(() => {
@@ -210,9 +264,25 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
       {newOrderId && (
         <div className="mx-4 mt-3 px-4 py-3 bg-blue-500 rounded-xl text-white font-bold text-[14px] flex items-center space-x-2 shadow-lg animate-pulse shrink-0">
           <span className="w-2 h-2 rounded-full bg-white" />
-          <span>NEW ORDER — #{orders.find(o => o.id === newOrderId)?.order_number}</span>
+          <span>🔔 NEW ORDER — #{orders.find(o => o.id === newOrderId)?.order_number}</span>
         </div>
       )}
+
+      {/* Mute Toggle */}
+      <div className="flex justify-end px-4 pt-2 shrink-0">
+        <button
+          onClick={() => setMuted(m => !m)}
+          title={muted ? 'Unmute notifications' : 'Mute notifications'}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+            muted
+              ? 'bg-red-50 border-red-200 text-red-600 hover:bg-red-100'
+              : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+          }`}
+        >
+          {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+          {muted ? 'Sound Off' : 'Sound On'}
+        </button>
+      </div>
 
       {/* Main Board */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-4">
