@@ -83,6 +83,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
       if (res.success) {
         const receiptData = {
           order_number: res.data.order_number,
+          receipt_id: res.data.receipt_id,
           created_at: new Date().toISOString(),
           subtotal: payload.subtotal,
           tax: payload.tax,
@@ -112,6 +113,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
       
       const receiptData = {
         order_number: 'PENDING (OFFLINE)',
+        receipt_id: 'PENDING (OFFLINE)',
         created_at: new Date().toISOString(),
         subtotal: payload.subtotal,
         tax: payload.tax,
