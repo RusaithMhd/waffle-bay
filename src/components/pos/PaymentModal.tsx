@@ -131,7 +131,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
     }
   }
 
-  const quickCashAmounts = [5, 10, 20, 50, 100]
+
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -230,22 +230,13 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
 
             {/* Quick Cash Buttons */}
             {activeMethod === 'CASH' && (
-              <div className="grid grid-cols-3 gap-3 mb-8">
+              <div className="grid grid-cols-1 gap-3 mb-8">
                 <button
                   onClick={() => handleAddPayment(balanceDue)}
-                  className="bg-green-100 text-green-700 font-bold py-3 rounded-xl hover:bg-green-200 transition-colors col-span-3"
+                  className="bg-green-100 text-green-700 font-bold py-3 rounded-xl hover:bg-green-200 transition-colors"
                 >
                   Exact Amount ({settings.currency_symbol} {balanceDue.toFixed(2)})
                 </button>
-                {quickCashAmounts.map(amt => (
-                  <button
-                    key={amt}
-                    onClick={() => handleAddPayment(amt)}
-                    className="bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
-                  >
-                    {settings.currency_symbol} {amt}
-                  </button>
-                ))}
               </div>
             )}
 
