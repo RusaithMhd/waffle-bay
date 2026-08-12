@@ -34,7 +34,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
   // ── Fetch orders ────────────────────────────────────────────────────────────
   const fetchOrders = useCallback(async () => {
     const selectQuery = `
-      id, order_number, fulfillment_status, created_at,
+      id, order_number, fulfillment_status, order_type, created_at,
       order_items (
         id, product_name_snapshot, quantity, fulfillment_status, notes,
         order_item_modifiers ( modifier_name_snapshot )
@@ -68,6 +68,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
       id:                 o.id,
       order_number:       o.order_number,
       fulfillment_status: o.fulfillment_status,
+      order_type:         o.order_type,
       created_at:         o.created_at,
       items: (o.order_items as any[]).map(i => ({
         id:                       i.id,

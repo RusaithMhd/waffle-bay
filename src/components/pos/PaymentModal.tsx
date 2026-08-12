@@ -20,7 +20,7 @@ interface PaymentModalProps {
 }
 
 export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
-  const { cart, getSubtotal, getTaxAmount, getDiscountAmount, getTotal, clearCart } = usePosStore()
+  const { cart, getSubtotal, getTaxAmount, getDiscountAmount, getTotal, clearCart, orderType } = usePosStore()
   const settings = useSettings()
   const total = getTotal()
 
@@ -56,6 +56,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
       tax: getTaxAmount(),
       discount: getDiscountAmount(),
       total: total,
+      order_type: orderType,
       items: cart.map(item => ({
         product_id: item.product.id,
         product_name_snapshot: item.product.name,

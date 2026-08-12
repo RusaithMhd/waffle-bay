@@ -26,7 +26,7 @@ export default async function SalesPage(props: { searchParams: Promise<{ period?
   let ordersQuery = supabase
     .from('orders')
     .select(`
-      id, order_number, status, total, subtotal, tax, discount, created_at,
+      id, order_number, status, total, subtotal, tax, discount, order_type, created_at,
       profiles:cashier_id ( first_name ),
       payments ( method, amount ),
       order_items (
@@ -39,7 +39,13 @@ export default async function SalesPage(props: { searchParams: Promise<{ period?
   // 2. Build Metrics Query (we fetch without pagination to calculate totals)
   let metricsQuery = supabase
     .from('orders')
-    .select('id, total, status')
+    .select(`
+      id, total, status, created_at,
+      order_items (
+        product_name_snapshot,
+        quantity
+      )
+    `)
     
   // Apply Search Filter (INV Number)
   if (search) {
@@ -102,6 +108,46 @@ export default async function SalesPage(props: { searchParams: Promise<{ period?
   const totalOrdersCount = validMetrics.length
   const avgOrderValue = totalOrdersCount > 0 ? totalRevenue / totalOrdersCount : 0
 
+  // Analytics: Top / Least Products
+  const productSales: Record<string, number> = {}
+  validMetrics.forEach(order => {
+    (order.order_items || []).forEach((item: any) => {
+      const name = item.product_name_snapshot
+      productSales[name] = (productSales[name] || 0) + item.quantity
+    })
+  })
+
+  const sortedProducts = Object.entries(productSales)
+    .map(([name, quantity]) => ({ name, quantity }))
+    .sort((a, b) => b.quantity - a.quantity)
+    
+  const topProducts = sortedProducts.slice(0, 5)
+  // Ensure we don't duplicate if there are less than 10 products total
+  const leastProducts = sortedProducts.slice(-5).reverse().filter(p => !topProducts.find(t => t.name === p.name) || sortedProducts.length <= 5)
+
+  // Analytics: Revenue Trend
+  const trendDataMap = new Map<string, number>()
+  validMetrics.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  
+  validMetrics.forEach(order => {
+    const date = new Date(order.created_at)
+    let key = ''
+    if (period === 'daily') {
+      key = date.toLocaleTimeString([], { hour: '2-digit', hour12: true }) // e.g., "10 AM"
+    } else {
+      key = date.toLocaleDateString([], { month: 'short', day: 'numeric' }) // e.g., "Aug 12"
+    }
+    trendDataMap.set(key, (trendDataMap.get(key) || 0) + Number(order.total))
+  })
+  
+  const revenueTrend = Array.from(trendDataMap.entries()).map(([time, revenue]) => ({ time, revenue }))
+
+  const analytics = {
+    topProducts,
+    leastProducts,
+    revenueTrend
+  }
+
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
@@ -116,6 +162,7 @@ export default async function SalesPage(props: { searchParams: Promise<{ period?
       <SalesClient 
         orders={orders || []} 
         metrics={{ totalRevenue, totalOrdersCount, avgOrderValue }}
+        analytics={analytics}
         pagination={{ page, totalPages, totalCount: totalCount || 0 }}
         filters={{ period, specificDate: specificDate || '', search }}
         currency={settings?.currency_symbol || 'Rs.'}

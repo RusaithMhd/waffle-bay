@@ -19,6 +19,7 @@ export interface KOTData {
   id: string
   order_number: number
   fulfillment_status: OrderStatus
+  order_type?: 'DINE_IN' | 'TAKEAWAY'
   created_at: string
   items: KOTItemData[]
 }
@@ -112,7 +113,13 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, 
 
         {/* Order type badge */}
         <div className="flex flex-col items-end">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider bg-white/60 px-2 py-1 rounded-md border border-white/50 shadow-sm">DINE IN</span>
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border shadow-sm ${
+            order.order_type === 'TAKEAWAY' 
+              ? 'text-purple-700 bg-purple-50 border-purple-200' 
+              : 'text-blue-700 bg-blue-50 border-blue-200'
+          }`}>
+            {order.order_type === 'TAKEAWAY' ? 'TAKEAWAY' : 'DINE IN'}
+          </span>
         </div>
       </div>
 

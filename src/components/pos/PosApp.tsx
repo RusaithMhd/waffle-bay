@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Product, Category, ModifierGroup, Modifier } from '@/types'
 import { usePosStore, CartItem } from '@/stores/usePosStore'
-import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon, LogOut, Edit2 } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon, LogOut, Edit2, Coffee, ShoppingBag } from 'lucide-react'
 import { PaymentModal } from './PaymentModal'
 import { useEffect } from 'react'
 import { SyncService } from '@/services/sync'
@@ -136,7 +136,14 @@ export function PosApp({
     getSubtotal,
     getTaxAmount,
     getTotal,
-    discountPercent
+    discountPercent,
+    orderType,
+    setOrderType,
+    heldOrders,
+    loadHeldOrders,
+    holdOrder,
+    resumeOrder,
+    deleteHeldOrder
   } = usePosStore()
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -150,6 +157,12 @@ export function PosApp({
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false)
+  
+  // Held orders states
+  const [isHoldModalOpen, setIsHoldModalOpen] = useState(false)
+  const [holdName, setHoldName] = useState('')
+  const [isHeldListOpen, setIsHeldListOpen] = useState(false)
+  const [showOrderTypePrompt, setShowOrderTypePrompt] = useState(false)
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -160,6 +173,7 @@ export function PosApp({
   // Sync menu locally on load
   useEffect(() => {
     SyncService.pullMenu()
+    loadHeldOrders()
     
     // Attempt outbox push every 30 seconds
     const interval = setInterval(() => {
@@ -215,7 +229,7 @@ export function PosApp({
   }
 
   const handleCheckout = () => {
-    setShowPayment(true)
+    setShowOrderTypePrompt(true)
   }
 
   const handlePaymentSuccess = (receipt: ReceiptData) => {
@@ -226,6 +240,31 @@ export function PosApp({
   // Extracted Cart Internals for reuse in Desktop and Mobile views
   const CartInternals = ({ isMobile = false }: { isMobile?: boolean }) => (
     <>
+      <div className="px-4 pt-3 pb-1 shrink-0 bg-[#F8FAFC]">
+        <div className="bg-gray-100 p-0.5 rounded-xl flex items-center border border-gray-200">
+          <button 
+            onClick={() => setOrderType('DINE_IN')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center ${
+              orderType === 'DINE_IN' 
+                ? 'bg-white text-gray-950 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            Dine In
+          </button>
+          <button 
+            onClick={() => setOrderType('TAKEAWAY')}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center ${
+              orderType === 'TAKEAWAY' 
+                ? 'bg-white text-gray-950 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            Takeaway
+          </button>
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
         {cart.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-[#6B7280] space-y-3">
@@ -271,13 +310,25 @@ export function PosApp({
             <span>{settings.currency_symbol} {getTotal().toFixed(2)}</span>
           </div>
         </div>
-        <button
-          onClick={handleCheckout}
-          disabled={cart.length === 0}
-          className="w-full bg-[#FF6500] hover:bg-[#e65a00] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-[16px] font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center active:scale-[0.98]"
-        >
-          Pay {settings.currency_symbol} {getTotal().toFixed(2)}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setHoldName(`Order #${Date.now().toString().slice(-4)}`)
+              setIsHoldModalOpen(true)
+            }}
+            disabled={cart.length === 0}
+            className="w-1/3 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed text-gray-700 text-[14px] font-bold py-3.5 rounded-xl border border-gray-200 transition-colors flex items-center justify-center active:scale-[0.98]"
+          >
+            Hold
+          </button>
+          <button
+            onClick={handleCheckout}
+            disabled={cart.length === 0}
+            className="w-2/3 bg-[#FF6500] hover:bg-[#e65a00] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-[15px] font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center active:scale-[0.98]"
+          >
+            Pay {settings.currency_symbol} {getTotal().toFixed(2)}
+          </button>
+        </div>
       </div>
     </>
   )
@@ -302,6 +353,18 @@ export function PosApp({
               <div className="w-8 h-8 bg-[#FF6500] rounded-lg flex items-center justify-center text-white font-bold text-[16px]">W</div>
               <h1 className="text-[17px] font-semibold tracking-tight text-[#111827]">Waffle Bay</h1>
             </div>
+            
+            <button
+              onClick={() => setIsHeldListOpen(true)}
+              className="relative ml-2 sm:ml-4 px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-[#FF6500] text-[12px] font-bold rounded-xl transition-all flex items-center space-x-1.5 border border-orange-100 shadow-sm shrink-0"
+            >
+              <span>Held Bills</span>
+              {heldOrders.length > 0 && (
+                <span className="bg-[#FF6500] text-white text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center">
+                  {heldOrders.length}
+                </span>
+              )}
+            </button>
           </div>
           
           <div className="relative">
@@ -587,6 +650,174 @@ export function PosApp({
 
       {/* Receipt Modal (Triggers native print automatically) */}
       <Receipt data={receiptData} onClose={() => setReceiptData(null)} />
+
+      {/* Hold Order Modal */}
+      {isHoldModalOpen && (
+        <div className="fixed inset-0 bg-gray-900/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+            <div>
+              <h3 className="text-[17px] font-bold text-[#111827]">Hold Order</h3>
+              <p className="text-xs text-gray-500 mt-1">Enter a friendly reference name (e.g. Table number or customer name) to identify this bill later.</p>
+            </div>
+            <input 
+              type="text" 
+              value={holdName}
+              onChange={(e) => setHoldName(e.target.value)}
+              className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6500]"
+              placeholder="e.g. Table 5 / Alex"
+              autoFocus
+            />
+            <div className="flex justify-end gap-3 pt-2">
+              <button 
+                onClick={() => {
+                  setIsHoldModalOpen(false)
+                  setHoldName('')
+                }}
+                className="px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 active:scale-95 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  holdOrder(holdName)
+                  setIsHoldModalOpen(false)
+                  setHoldName('')
+                  setShowCart(false)
+                }}
+                disabled={!holdName.trim()}
+                className="px-4 py-2 bg-[#FF6500] hover:bg-[#e65a00] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white rounded-xl text-sm font-semibold active:scale-95 transition-all shadow-sm"
+              >
+                Hold Bill
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Held Bills Drawer / List */}
+      {isHeldListOpen && (
+        <div className="fixed inset-0 bg-gray-900/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-5 py-4 border-b border-[#E5E7EB] flex justify-between items-center shrink-0">
+              <h2 className="text-[16px] font-bold text-[#111827] flex items-center">
+                Held Bills 
+                <span className="ml-2 bg-orange-100 text-[#FF6500] px-2 py-0.5 rounded-full text-xs font-bold">{heldOrders.length}</span>
+              </h2>
+              <button onClick={() => setIsHeldListOpen(false)} className="p-1.5 bg-gray-50 hover:bg-gray-100 text-[#6B7280] rounded-full transition-all active:scale-90"><X className="w-5 h-5" /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FAFC]">
+              {heldOrders.length === 0 ? (
+                <div className="h-full py-16 flex flex-col items-center justify-center text-[#6B7280] space-y-3 bg-white border border-dashed rounded-xl">
+                  <ShoppingCart className="w-10 h-10 opacity-30 text-gray-400" />
+                  <p className="font-semibold text-sm">No bills are currently held</p>
+                </div>
+              ) : (
+                heldOrders.map((order) => {
+                  const itemsCount = order.cart.reduce((sum, item) => sum + item.quantity, 0)
+                  const totalSum = order.cart.reduce((sum, item) => sum + item.itemTotal, 0)
+                  return (
+                    <div key={order.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col space-y-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-bold text-gray-900 text-[15px]">{order.name}</h4>
+                          <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold rounded mt-1 ${
+                            order.orderType === 'TAKEAWAY' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {order.orderType === 'TAKEAWAY' ? 'Takeaway' : 'Dine In'}
+                          </span>
+                          <span className="text-[10px] text-gray-400 block mt-1">
+                            Held: {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-gray-900 text-sm">{settings.currency_symbol} {totalSum.toFixed(2)}</p>
+                          <p className="text-[11px] text-gray-400">{itemsCount} item{itemsCount !== 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 pt-2 border-t border-gray-150">
+                        <button
+                          onClick={() => {
+                            if (confirm('Are you sure you want to delete this held bill?')) {
+                              deleteHeldOrder(order.id)
+                            }
+                          }}
+                          className="flex-1 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 text-xs font-bold rounded-lg transition-all active:scale-95"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (cart.length > 0 && !confirm('Active items in cart will be replaced. Proceed?')) {
+                              return
+                            }
+                            resumeOrder(order.id)
+                            setIsHeldListOpen(false)
+                            setShowCart(true)
+                          }}
+                          className="flex-2 py-1.5 bg-[#FF6500] hover:bg-[#e65a00] text-white text-xs font-bold rounded-lg transition-all active:scale-95 shadow-sm px-4"
+                        >
+                          Resume Cart
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Type Selection Prompt */}
+      {showOrderTypePrompt && (
+        <div className="fixed inset-0 bg-gray-900/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5">
+            <div className="text-center">
+              <h3 className="text-[18px] font-extrabold text-[#111827]">Order Type</h3>
+              <p className="text-sm text-gray-500 mt-1">Select fulfillment option before entering payment</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => {
+                  setOrderType('DINE_IN')
+                  setShowOrderTypePrompt(false)
+                  setShowPayment(true)
+                }}
+                className={`p-6 rounded-2xl border-2 hover:border-[#FF6500]/50 hover:bg-orange-50/20 active:scale-95 transition-all flex flex-col items-center justify-center space-y-3 ${
+                  orderType === 'DINE_IN' ? 'border-[#FF6500] bg-orange-50/40 text-[#FF6500]' : 'border-gray-200 text-gray-700 bg-white'
+                }`}
+              >
+                <Coffee className="w-10 h-10" />
+                <span className="font-bold text-[15px]">Dine In</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  setOrderType('TAKEAWAY')
+                  setShowOrderTypePrompt(false)
+                  setShowPayment(true)
+                }}
+                className={`p-6 rounded-2xl border-2 hover:border-[#FF6500]/50 hover:bg-orange-50/20 active:scale-95 transition-all flex flex-col items-center justify-center space-y-3 ${
+                  orderType === 'TAKEAWAY' ? 'border-[#FF6500] bg-orange-50/40 text-[#FF6500]' : 'border-gray-200 text-gray-700 bg-white'
+                }`}
+              >
+                <ShoppingBag className="w-10 h-10" />
+                <span className="font-bold text-[15px]">Takeaway</span>
+              </button>
+            </div>
+
+            <button 
+              onClick={() => setShowOrderTypePrompt(false)}
+              className="w-full py-3 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
