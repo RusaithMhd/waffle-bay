@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { Search, Calendar, ChevronLeft, ChevronRight, TrendingUp, ShoppingBag, DollarSign, Receipt as ReceiptIcon, LayoutDashboard, ListOrdered } from 'lucide-react'
+import { Search, Calendar, ChevronLeft, ChevronRight, TrendingUp, ShoppingBag, DollarSign, Receipt as ReceiptIcon, LayoutDashboard, ListOrdered, Download } from 'lucide-react'
 import { Receipt, ReceiptData } from '@/components/pos/Receipt'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -132,30 +132,40 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
         </form>
       </div>
 
-      {/* Tabs */}
-      <div className="flex space-x-6 border-b border-gray-200 pb-px">
-        <button 
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex items-center px-2 py-3 text-sm font-bold border-b-2 transition-all ${
-            activeTab === 'dashboard' 
-              ? 'border-[#FF6500] text-[#FF6500]' 
-              : 'border-transparent text-gray-400 hover:text-gray-600'
-          }`}
+      {/* Tabs + Export */}
+      <div className="flex items-center justify-between border-b border-gray-200 pb-px">
+        <div className="flex space-x-6">
+          <button 
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center px-2 py-3 text-sm font-bold border-b-2 transition-all ${
+              activeTab === 'dashboard' 
+                ? 'border-[#FF6500] text-[#FF6500]' 
+                : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            <LayoutDashboard className="w-4.5 h-4.5 mr-2" />
+            Dashboard
+          </button>
+          <button 
+            onClick={() => setActiveTab('transactions')}
+            className={`flex items-center px-2 py-3 text-sm font-bold border-b-2 transition-all ${
+              activeTab === 'transactions' 
+                ? 'border-[#FF6500] text-[#FF6500]' 
+                : 'border-transparent text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            <ListOrdered className="w-4.5 h-4.5 mr-2" />
+            Transactions
+          </button>
+        </div>
+        {/* Export button — respects current period & date filters */}
+        <a
+          href={`/api/export?type=sales&period=${filters.period}${filters.specificDate ? '&date=' + filters.specificDate : ''}`}
+          className="flex items-center gap-1.5 px-4 py-2 bg-green-700 hover:bg-green-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm mb-1"
         >
-          <LayoutDashboard className="w-4.5 h-4.5 mr-2" />
-          Dashboard
-        </button>
-        <button 
-          onClick={() => setActiveTab('transactions')}
-          className={`flex items-center px-2 py-3 text-sm font-bold border-b-2 transition-all ${
-            activeTab === 'transactions' 
-              ? 'border-[#FF6500] text-[#FF6500]' 
-              : 'border-transparent text-gray-400 hover:text-gray-600'
-          }`}
-        >
-          <ListOrdered className="w-4.5 h-4.5 mr-2" />
-          Transactions
-        </button>
+          <Download className="w-3.5 h-3.5" />
+          Export Sales (.xlsx)
+        </a>
       </div>
 
       {activeTab === 'dashboard' ? (

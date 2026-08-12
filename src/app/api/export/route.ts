@@ -2,87 +2,311 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { getCurrentUserWithRole } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
+import * as XLSX from 'xlsx'
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function fmt(v: unknown): string {
+  if (v === null || v === undefined) return ''
+  return String(v)
+}
+
+function fmtDate(v: unknown): string {
+  if (!v) return ''
+  try { return new Date(String(v)).toLocaleString() } catch { return String(v) }
+}
+
+function fmtNum(v: unknown): number {
+  const n = Number(v)
+  return isNaN(n) ? 0 : n
+}
+
+/**
+ * Build a worksheet with a styled title block then column headers,
+ * then data rows.
+ */
+function buildSheet(
+  wb: XLSX.WorkBook,
+  sheetName: string,
+  title: string,
+  subtitle: string,
+  headers: string[],
+  rows: (string | number)[][]
+): XLSX.WorkSheet {
+  const ws: XLSX.WorkSheet = {}
+  let rowIdx = 0
+
+  // Row 0: store title
+  XLSX.utils.sheet_add_aoa(ws, [[title]], { origin: { r: rowIdx, c: 0 } })
+  rowIdx++
+
+  // Row 1: subtitle / period
+  XLSX.utils.sheet_add_aoa(ws, [[subtitle]], { origin: { r: rowIdx, c: 0 } })
+  rowIdx++
+
+  // Row 2: generated timestamp
+  XLSX.utils.sheet_add_aoa(ws,
+    [[`Generated: ${new Date().toLocaleString()}`]],
+    { origin: { r: rowIdx, c: 0 } }
+  )
+  rowIdx++
+
+  // Row 3: blank separator
+  rowIdx++
+
+  // Row 4: column headers
+  XLSX.utils.sheet_add_aoa(ws, [headers], { origin: { r: rowIdx, c: 0 } })
+  rowIdx++
+
+  // Data rows
+  XLSX.utils.sheet_add_aoa(ws, rows, { origin: { r: rowIdx, c: 0 } })
+  rowIdx += rows.length
+
+  // Set column widths automatically (approx 20 chars each)
+  ws['!cols'] = headers.map(() => ({ wch: 20 }))
+
+  // Merge title across all columns
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: headers.length - 1 } },
+  ]
+
+  XLSX.utils.book_append_sheet(wb, ws, sheetName)
+  return ws
+}
+
+// ─── route ────────────────────────────────────────────────────────────────────
 
 export async function GET(request: Request) {
   const user = await getCurrentUserWithRole()
-  if (!user || !hasPermission(user.role, 'accounting')) {
+  if (!user || (!hasPermission(user.role, 'accounting') && !hasPermission(user.role, 'sales'))) {
     return new NextResponse('Unauthorized', { status: 401 })
   }
 
   const { searchParams } = new URL(request.url)
-  const type = searchParams.get('type') // 'ledger' or 'z-reports'
-  const period = searchParams.get('period') || 'all'
-  const specificDate = searchParams.get('date')
+  const type     = searchParams.get('type') ?? 'sales'   // 'sales' | 'ledger' | 'z-reports' | 'all'
+  const period   = searchParams.get('period') ?? 'all'
+  const specificDate = searchParams.get('date') ?? null
 
   const supabase = await createClient()
 
-  let query
-  
-  if (type === 'z-reports') {
-    query = supabase.from('z_reports_view').select('*').order('opened_at', { ascending: false })
-  } else {
-    // Default to ledger
-    query = supabase.from('accounting_ledger').select('*').order('created_at', { ascending: false })
+  // ── Settings (store name + currency) ────────────────────────────────────────
+  const { data: settings } = await supabase
+    .from('store_settings')
+    .select('store_name, currency_symbol')
+    .eq('id', 1)
+    .single()
+
+  const storeName = settings?.store_name ?? 'Waffle Bay'
+  const currency  = settings?.currency_symbol ?? 'Rs.'
+
+  // ── Date range helpers ───────────────────────────────────────────────────────
+  function getDateRange(): { start?: string; end?: string } {
+    if (period === 'custom' && specificDate) {
+      const [y, m, d] = specificDate.split('-').map(Number)
+      return {
+        start: new Date(y, m - 1, d, 0, 0, 0, 0).toISOString(),
+        end:   new Date(y, m - 1, d, 23, 59, 59, 999).toISOString()
+      }
+    }
+    if (period === 'daily') return { start: new Date(new Date().setHours(0, 0, 0, 0)).toISOString() }
+    if (period === 'weekly')  { const d = new Date(); d.setDate(d.getDate() - 7);      return { start: d.toISOString() } }
+    if (period === 'monthly') { const d = new Date(); d.setMonth(d.getMonth() - 1);    return { start: d.toISOString() } }
+    if (period === 'yearly')  { const d = new Date(); d.setFullYear(d.getFullYear()-1); return { start: d.toISOString() } }
+    return {}
   }
 
-  // Apply filters identically to the accounting page
-  if (period === 'custom' && specificDate) {
-    const [year, month, day] = specificDate.split('-').map(Number)
-    const startOfDay = new Date(year, month - 1, day, 0,0,0,0)
-    const endOfDay = new Date(year, month - 1, day, 23,59,59,999)
-    query = query.gte(type === 'z-reports' ? 'opened_at' : 'created_at', startOfDay.toISOString()).lte(type === 'z-reports' ? 'opened_at' : 'created_at', endOfDay.toISOString())
-  } else if (period === 'daily') {
-    query = query.gte(type === 'z-reports' ? 'opened_at' : 'created_at', new Date(new Date().setHours(0,0,0,0)).toISOString())
-  } else if (period === 'weekly') {
-    const lastWeek = new Date()
-    lastWeek.setDate(lastWeek.getDate() - 7)
-    query = query.gte(type === 'z-reports' ? 'opened_at' : 'created_at', lastWeek.toISOString())
-  } else if (period === 'monthly') {
-    const lastMonth = new Date()
-    lastMonth.setMonth(lastMonth.getMonth() - 1)
-    query = query.gte(type === 'z-reports' ? 'opened_at' : 'created_at', lastMonth.toISOString())
-  } else if (period === 'yearly') {
-    const lastYear = new Date()
-    lastYear.setFullYear(lastYear.getFullYear() - 1)
-    query = query.gte(type === 'z-reports' ? 'opened_at' : 'created_at', lastYear.toISOString())
+  function applyRange(q: any, col: string) {
+    const { start, end } = getDateRange()
+    if (start) q = q.gte(col, start)
+    if (end)   q = q.lte(col, end)
+    return q
   }
 
-  const { data, error } = await query
+  const periodLabel = specificDate
+    ? `Date: ${specificDate}`
+    : period === 'daily'   ? `Daily – ${new Date().toLocaleDateString()}`
+    : period === 'weekly'  ? 'Last 7 Days'
+    : period === 'monthly' ? 'Last 30 Days'
+    : period === 'yearly'  ? 'Last 12 Months'
+    : 'All Time'
 
-  if (error || !data) {
-    return new NextResponse('Error fetching data: ' + error?.message, { status: 500 })
-  }
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Build the Excel workbook
+  // ─────────────────────────────────────────────────────────────────────────────
+  const wb = XLSX.utils.book_new()
 
-  if (data.length === 0) {
-    return new NextResponse('No data found for the selected period.', { status: 404 })
-  }
+  // ── Profiles lookup (for cashier names) ─────────────────────────────────────
+  const { data: profiles } = await supabase.from('profiles').select('id, first_name')
+  const profileMap: Record<string, string> = Object.fromEntries(
+    (profiles ?? []).map(p => [p.id, p.first_name ?? 'Unknown'])
+  )
 
-  // Convert to CSV
-  let csv = ''
-  
-  if (type === 'z-reports') {
-    // Z-Reports CSV Headers
-    csv += 'Shift ID,Opened At,Closed At,Cashier Name,Expected Cash,Actual Cash,Difference,Card Total,Total Sales\n'
-    data.forEach(row => {
-      csv += `${row.id},${row.opened_at},${row.closed_at || 'Active'},"${row.cashier_name || ''}",${row.expected_cash},${row.actual_cash || 0},${row.difference || 0},${row.total_card},${row.total_sales}\n`
+  // ════════════════════════════════════════════════════════════════════════════
+  // SALES REPORT
+  // ════════════════════════════════════════════════════════════════════════════
+  if (type === 'sales' || type === 'all') {
+    let q = supabase
+      .from('orders')
+      .select(`
+        id, order_number, kot_number, business_date, status, order_type,
+        subtotal, tax, discount, total, created_at,
+        cashier_id,
+        payments ( method, amount ),
+        order_items ( product_name_snapshot, quantity, unit_price_snapshot, subtotal )
+      `)
+      .order('created_at', { ascending: false })
+
+    q = applyRange(q, 'created_at')
+
+    const { data: orders, error } = await q
+    if (error) return new NextResponse('Error: ' + error.message, { status: 500 })
+
+    const salesHeaders = [
+      'Invoice', 'KOT #', 'Business Date', 'Date & Time',
+      'Order Type', 'Status', 'Cashier',
+      `Subtotal (${currency})`, `Tax (${currency})`, `Discount (${currency})`, `Total (${currency})`,
+      'Payment Methods', 'Items Ordered'
+    ]
+
+    const salesRows: (string | number)[][] = (orders ?? []).map(o => {
+      const payments = (o.payments ?? []).map((p: any) => `${p.method}: ${currency} ${fmtNum(p.amount).toFixed(2)}`).join('; ')
+      const items = (o.order_items ?? []).map((i: any) => `${i.quantity}x ${i.product_name_snapshot}`).join('; ')
+      return [
+        `INV-${String(o.order_number).padStart(6, '0')}`,
+        o.kot_number ? `KOT-${String(o.kot_number).padStart(3, '0')}` : '',
+        fmt(o.business_date),
+        fmtDate(o.created_at),
+        o.order_type === 'TAKEAWAY' ? 'Takeaway' : 'Dine In',
+        fmt(o.status),
+        profileMap[o.cashier_id] ?? 'System',
+        fmtNum(o.subtotal),
+        fmtNum(o.tax),
+        fmtNum(o.discount),
+        fmtNum(o.total),
+        payments,
+        items
+      ]
     })
-  } else {
-    // Ledger CSV Headers
-    csv += 'Date,Type,Description,Reference,Debit,Credit,Balance\n'
-    data.forEach(row => {
-      // Escape description if it contains commas
-      const desc = `"${(row.description || '').replace(/"/g, '""')}"`
-      const ref = `"${(row.reference_id || '').replace(/"/g, '""')}"`
-      csv += `${row.created_at},${row.transaction_type},${desc},${ref},${row.debit_amount},${row.credit_amount},${row.balance_after}\n`
-    })
+
+    // Totals row
+    const totalSales = (orders ?? []).reduce((s, o) => s + fmtNum(o.total), 0)
+    const totalTax   = (orders ?? []).reduce((s, o) => s + fmtNum(o.tax), 0)
+    salesRows.push([])
+    salesRows.push(['', '', '', '', '', '', 'TOTAL', '', fmtNum(totalTax), '', fmtNum(totalSales), '', ''])
+
+    buildSheet(wb, 'Sales Report', `${storeName} – Sales Report`, periodLabel, salesHeaders, salesRows)
   }
 
-  const fileName = `waffle_bay_${type}_${period}${specificDate ? '_' + specificDate : ''}.csv`
+  // ════════════════════════════════════════════════════════════════════════════
+  // LEDGER REPORT
+  // ════════════════════════════════════════════════════════════════════════════
+  if (type === 'ledger' || type === 'all') {
+    let q = supabase
+      .from('accounting_ledger')
+      .select('id, created_at, transaction_type, description, reference_id, debit, credit, payment_method, cashier_id')
+      .order('created_at', { ascending: false })
 
-  return new NextResponse(csv, {
+    q = applyRange(q, 'created_at')
+
+    const { data: ledger, error: ledgerError } = await q
+    if (ledgerError) return new NextResponse('Error: ' + ledgerError.message, { status: 500 })
+
+    const ledgerHeaders = [
+      'Date & Time', 'Type', 'Description', 'Reference ID',
+      'Payment Method', 'Cashier',
+      `Debit / In (${currency})`, `Credit / Out (${currency})`
+    ]
+
+    const ledgerRows: (string | number)[][] = (ledger ?? []).map(e => [
+      fmtDate(e.created_at),
+      fmt(e.transaction_type),
+      fmt(e.description),
+      fmt(e.reference_id),
+      fmt(e.payment_method ?? '').toLowerCase(),
+      profileMap[e.cashier_id] ?? 'System',
+      fmtNum(e.debit),
+      fmtNum(e.credit)
+    ])
+
+    // Totals row
+    const totalDebit  = (ledger ?? []).reduce((s, e) => s + fmtNum(e.debit), 0)
+    const totalCredit = (ledger ?? []).reduce((s, e) => s + fmtNum(e.credit), 0)
+    ledgerRows.push([])
+    ledgerRows.push(['', '', '', '', '', 'TOTAL', fmtNum(totalDebit), fmtNum(totalCredit)])
+
+    buildSheet(wb, 'Ledger', `${storeName} – Accounting Ledger`, periodLabel, ledgerHeaders, ledgerRows)
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // Z-REPORTS
+  // ════════════════════════════════════════════════════════════════════════════
+  if (type === 'z-reports' || type === 'all') {
+    let q = supabase
+      .from('z_reports_view')
+      .select('*')
+      .order('opened_at', { ascending: false })
+
+    q = applyRange(q, 'opened_at')
+
+    const { data: zReports, error: zError } = await q
+    if (zError) return new NextResponse('Error: ' + zError.message, { status: 500 })
+
+    const zHeaders = [
+      'Status', 'Cashier',
+      'Opened At', 'Closed At',
+      `Opening Cash (${currency})`,
+      `Cash Received (${currency})`,
+      `Card Received (${currency})`,
+      `Expenses / Cash Out (${currency})`,
+      `Expected Cash (${currency})`,
+      `Actual Cash (${currency})`,
+      `Variance (${currency})`,
+      `Total Sales (${currency})`,
+      'Total Orders'
+    ]
+
+    const zRows: (string | number)[][] = (zReports ?? []).map(r => {
+      const isActive = !r.closed_at
+      return [
+        isActive ? 'Active' : 'Closed',
+        profileMap[r.cashier_id] ?? 'Unknown',
+        fmtDate(r.opened_at),
+        r.closed_at ? fmtDate(r.closed_at) : 'Still Open',
+        fmtNum(r.starting_cash),
+        fmtNum(r.total_cash_received),
+        fmtNum(r.total_card_received),
+        fmtNum(r.total_expenses),
+        isActive ? fmtNum(r.expected_cash_live) : fmtNum(r.expected_cash),
+        isActive ? 0 : fmtNum(r.actual_cash),
+        isActive ? 0 : fmtNum(r.variance),
+        fmtNum(r.total_sales),
+        fmtNum(r.total_orders)
+      ]
+    })
+
+    // Summary totals row
+    const totalSales   = (zReports ?? []).reduce((s, r) => s + fmtNum(r.total_sales), 0)
+    const totalOrders  = (zReports ?? []).reduce((s, r) => s + fmtNum(r.total_orders), 0)
+    zRows.push([])
+    zRows.push(['', 'TOTAL', '', '', '', '', '', '', '', '', '', fmtNum(totalSales), fmtNum(totalOrders)])
+
+    buildSheet(wb, 'Z-Reports', `${storeName} – Z-Reports & Cash Flow`, periodLabel, zHeaders, zRows)
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Serialize workbook → buffer
+  // ────────────────────────────────────────────────────────────────────────────
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+
+  const safeDate = specificDate ?? new Date().toISOString().split('T')[0]
+  const fileName = `${storeName.replace(/\s+/g, '_')}_${type}_${period}_${safeDate}.xlsx`
+
+  return new NextResponse(buf, {
     status: 200,
     headers: {
-      'Content-Type': 'text/csv',
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Disposition': `attachment; filename="${fileName}"`
     }
   })

@@ -96,14 +96,28 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
         {zError && <div className="bg-red-100 text-red-700 p-2 rounded w-full my-2">Z-Error: {zError.message}</div>}
         {lError && <div className="bg-red-100 text-red-700 p-2 rounded w-full my-2">L-Error: {lError.message}</div>}
 
-        <div className="flex space-x-3">
+        <div className="flex flex-wrap gap-2 items-center">
           <CashManagementModal />
           <a 
             href={`/api/export?type=ledger&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
-            className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors"
+            className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors text-sm"
           >
-            <FileText className="w-5 h-5" />
-            <span>Export Ledger CSV</span>
+            <FileText className="w-4 h-4" />
+            <span>Ledger (.xlsx)</span>
+          </a>
+          <a 
+            href={`/api/export?type=z-reports&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
+            className="bg-[#FF6500] hover:bg-[#e65a00] text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors text-sm"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Z-Reports (.xlsx)</span>
+          </a>
+          <a 
+            href={`/api/export?type=all&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
+            className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors text-sm"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Export All (.xlsx)</span>
           </a>
         </div>
       </div>
@@ -143,7 +157,7 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
               Z-Reports & Cash Flow
             </h2>
             <a href={`/api/export?type=z-reports&period=${period}${specificDate ? '&date=' + specificDate : ''}`} className="ml-4 px-3 py-1.5 bg-[#FF6500] text-white text-[13px] font-bold rounded shadow-sm hover:bg-[#e65a00] flex items-center transition-colors">
-              <FileText className="w-4 h-4 mr-1.5" /> Export Z-Reports
+              <FileText className="w-4 h-4 mr-1.5" /> Z-Reports (.xlsx)
             </a>
           </div>
           <div className="flex space-x-2 bg-gray-100 p-1 rounded-xl items-center overflow-x-auto w-full xl:w-auto pb-2 xl:pb-1">
