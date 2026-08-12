@@ -152,14 +152,26 @@ export function Receipt({ data, onClose }: ReceiptProps) {
           </div>
 
           {/* Payments */}
-          <div className="border-t border-dashed border-gray-300 pt-4 mt-4">
+          <div className="border-t border-dashed border-gray-300 pt-4 mt-4 space-y-1">
             <h4 className="font-semibold text-gray-700 mb-2">Payments</h4>
             {data.payments.map((p, idx) => (
               <div key={idx} className="flex justify-between text-gray-600 text-sm">
-                <span>{p.payment_method}</span>
+                <span>{p.payment_method || (p as any).method}</span>
                 <span>{settings.currency_symbol} {p.amount.toFixed(2)}</span>
               </div>
             ))}
+            
+            <div className="flex justify-between text-gray-900 font-bold pt-2 border-t border-gray-200 mt-2 text-sm">
+              <span>Amount Received</span>
+              <span>{settings.currency_symbol} {data.payments.reduce((sum, p) => sum + p.amount, 0).toFixed(2)}</span>
+            </div>
+            
+            {data.payments.reduce((sum, p) => sum + p.amount, 0) > data.total && (
+              <div className="flex justify-between text-gray-900 font-bold text-sm">
+                <span>Change</span>
+                <span>{settings.currency_symbol} {(data.payments.reduce((sum, p) => sum + p.amount, 0) - data.total).toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           {/* Footer */}
