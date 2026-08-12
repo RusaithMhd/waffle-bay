@@ -19,10 +19,10 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
     const params = new URLSearchParams(searchParams.toString())
     if (value) params.set(key, value)
     else params.delete(key)
-    
+
     // Reset page on filter change
     if (key !== 'page') params.set('page', '1')
-    
+
     router.push(`${pathname}?${params.toString()}`)
   }
 
@@ -69,9 +69,9 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center w-full">
           {/* Date Picker Input */}
           <div className="flex-1 min-w-[140px] relative">
-            <input 
-              type="date" 
-              value={filters.specificDate} 
+            <input
+              type="date"
+              value={filters.specificDate}
               onChange={(e) => {
                 if (e.target.value) {
                   updateFilters('period', 'custom')
@@ -85,46 +85,85 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
           </div>
 
           {/* Quick Period Segmented Toggles */}
-          <div className="flex bg-gray-100 p-1 rounded-2xl items-center flex-shrink-0 overflow-x-auto">
-            <button 
-              onClick={() => updateFilters('period', 'daily')} 
-              className={`px-5 py-2 text-sm font-semibold rounded-xl transition-all ${
-                filters.period === 'daily' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
+          <div className="flex bg-gray-100 p-1 rounded-2xl items-center flex-shrink-0 overflow-x-auto gap-1">
+            <button
+              onClick={() => {
+                updateFilters('date', '')
+                updateFilters('period', 'daily')
+              }}
+              className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all ${filters.period === 'daily'
+                  ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-900'
-              }`}
+                }`}
             >
               Daily
             </button>
-            <button 
-              onClick={() => updateFilters('period', 'weekly')} 
-              className={`px-5 py-2 text-sm font-semibold rounded-xl transition-all ${
-                filters.period === 'weekly' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
+            <button
+              onClick={() => {
+                updateFilters('date', '')
+                updateFilters('period', 'weekly')
+              }}
+              className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all ${filters.period === 'weekly'
+                  ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-900'
-              }`}
+                }`}
             >
               Weekly
             </button>
-            <button 
-              onClick={() => updateFilters('period', 'monthly')} 
-              className={`px-5 py-2 text-sm font-semibold rounded-xl transition-all ${
-                filters.period === 'monthly' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
+            <button
+              onClick={() => {
+                updateFilters('date', '')
+                updateFilters('period', 'monthly')
+              }}
+              className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all ${filters.period === 'monthly'
+                  ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-900'
-              }`}
+                }`}
             >
               Monthly
             </button>
+            <button
+              onClick={() => {
+                updateFilters('date', '')
+                updateFilters('period', 'yearly')
+              }}
+              className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all ${filters.period === 'yearly'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+                }`}
+            >
+              Yearly
+            </button>
+            <button
+              onClick={() => {
+                updateFilters('date', '')
+                updateFilters('period', 'all')
+              }}
+              className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all ${filters.period === 'all' || (!filters.period && !filters.specificDate)
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+                }`}
+            >
+              All Time
+            </button>
           </div>
+
+          {/* Export Button */}
+          <a
+            href={`/api/export?type=sales&period=${filters.period}${filters.specificDate ? '&date=' + filters.specificDate : ''}`}
+            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-green-700 hover:bg-green-800 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-sm w-full sm:w-auto"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export Sales (.xlsx)</span>
+          </a>
         </div>
 
         {/* Bottom control: Search Input */}
         <form onSubmit={handleSearchSubmit} className="relative w-full">
           <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input 
-            type="text" 
-            placeholder="Search by INV..." 
+          <input
+            type="text"
+            placeholder="Search by INV..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6500] shadow-sm"
@@ -135,24 +174,22 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
       {/* Tabs + Export */}
       <div className="flex items-center justify-between border-b border-gray-200 pb-px">
         <div className="flex space-x-6">
-          <button 
+          <button
             onClick={() => setActiveTab('dashboard')}
-            className={`flex items-center px-2 py-3 text-sm font-bold border-b-2 transition-all ${
-              activeTab === 'dashboard' 
-                ? 'border-[#FF6500] text-[#FF6500]' 
+            className={`flex items-center px-2 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'dashboard'
+                ? 'border-[#FF6500] text-[#FF6500]'
                 : 'border-transparent text-gray-400 hover:text-gray-600'
-            }`}
+              }`}
           >
             <LayoutDashboard className="w-4.5 h-4.5 mr-2" />
             Dashboard
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('transactions')}
-            className={`flex items-center px-2 py-3 text-sm font-bold border-b-2 transition-all ${
-              activeTab === 'transactions' 
-                ? 'border-[#FF6500] text-[#FF6500]' 
+            className={`flex items-center px-2 py-3 text-sm font-bold border-b-2 transition-all ${activeTab === 'transactions'
+                ? 'border-[#FF6500] text-[#FF6500]'
                 : 'border-transparent text-gray-400 hover:text-gray-600'
-            }`}
+              }`}
           >
             <ListOrdered className="w-4.5 h-4.5 mr-2" />
             Transactions
@@ -194,7 +231,7 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
               </div>
             </div>
           </div>
-          
+
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 lg:col-span-2">
@@ -208,7 +245,7 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                       <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280' }} dy={10} />
                       <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280' }} dx={-10} tickFormatter={(value) => `${currency}${value}`} />
-                      <Tooltip 
+                      <Tooltip
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                         formatter={(value: any) => [`${currency} ${Number(value || 0).toFixed(2)}`, 'Revenue']}
                       />
@@ -218,7 +255,7 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                 )}
               </div>
             </div>
-            
+
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                 <h3 className="font-bold text-gray-900 mb-4">Top Selling Products</h3>
@@ -226,7 +263,7 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                   {analytics.topProducts.length === 0 && <p className="text-gray-400 text-sm">No data available</p>}
                   {analytics.topProducts.map((p: any, i: number) => (
                     <div key={i} className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-700 truncate pr-4">{i+1}. {p.name}</span>
+                      <span className="text-sm font-medium text-gray-700 truncate pr-4">{i + 1}. {p.name}</span>
                       <span className="text-sm font-bold text-gray-900 bg-orange-50 text-orange-700 px-2.5 py-1 rounded-full">{p.quantity}</span>
                     </div>
                   ))}
@@ -238,7 +275,7 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                   {analytics.leastProducts.length === 0 && <p className="text-gray-400 text-sm">No data available</p>}
                   {analytics.leastProducts.map((p: any, i: number) => (
                     <div key={i} className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-700 truncate pr-4">{i+1}. {p.name}</span>
+                      <span className="text-sm font-medium text-gray-700 truncate pr-4">{i + 1}. {p.name}</span>
                       <span className="text-sm font-bold text-gray-900 bg-gray-50 text-gray-600 px-2.5 py-1 rounded-full">{p.quantity}</span>
                     </div>
                   ))}
@@ -257,8 +294,8 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
               </div>
             ) : (
               orders.map((order: any) => (
-                <div 
-                  key={order.id} 
+                <div
+                  key={order.id}
                   onClick={() => handleRowClick(order)}
                   className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm active:bg-orange-50/50 transition-colors flex flex-col space-y-3 cursor-pointer"
                 >
@@ -283,22 +320,20 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                       </div>
                     </div>
                     <div className="flex items-center space-x-1.5">
-                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${
-                        order.order_type === 'TAKEAWAY' ? 'bg-purple-150 text-purple-700' : 'bg-blue-150 text-blue-700'
-                      }`}>
+                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${order.order_type === 'TAKEAWAY' ? 'bg-purple-150 text-purple-700' : 'bg-blue-150 text-blue-700'
+                        }`}>
                         {order.order_type === 'TAKEAWAY' ? 'Takeaway' : 'Dine In'}
                       </span>
-                      <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
-                        order.status === 'PAID' ? 'bg-green-100 text-green-700' :
-                        order.status === 'VOID' ? 'bg-red-100 text-red-700' :
-                        order.status === 'REFUNDED' ? 'bg-orange-100 text-orange-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
+                      <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${order.status === 'PAID' ? 'bg-green-100 text-green-700' :
+                          order.status === 'VOID' ? 'bg-red-100 text-red-700' :
+                            order.status === 'REFUNDED' ? 'bg-orange-100 text-orange-700' :
+                              'bg-gray-100 text-gray-700'
+                        }`}>
                         {order.status}
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                     <span className="text-xs text-gray-500 font-medium">
                       Cashier: <span className="text-gray-700 font-semibold">{order.profiles?.first_name || 'System'}</span>
@@ -336,8 +371,8 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                     </tr>
                   ) : (
                     orders.map((order: any) => (
-                      <tr 
-                        key={order.id} 
+                      <tr
+                        key={order.id}
                         onClick={() => handleRowClick(order)}
                         className="hover:bg-orange-50/50 cursor-pointer transition-colors group"
                       >
@@ -362,9 +397,8 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-0.5 text-xs font-bold rounded ${
-                            order.order_type === 'TAKEAWAY' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                          }`}>
+                          <span className={`px-2 py-0.5 text-xs font-bold rounded ${order.order_type === 'TAKEAWAY' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
                             {order.order_type === 'TAKEAWAY' ? 'Takeaway' : 'Dine In'}
                           </span>
                         </td>
@@ -372,12 +406,11 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                           {order.profiles?.first_name || 'System'}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
-                            order.status === 'PAID' ? 'bg-green-100 text-green-700' :
-                            order.status === 'VOID' ? 'bg-red-100 text-red-700' :
-                            order.status === 'REFUNDED' ? 'bg-orange-100 text-orange-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
+                          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${order.status === 'PAID' ? 'bg-green-100 text-green-700' :
+                              order.status === 'VOID' ? 'bg-red-100 text-red-700' :
+                                order.status === 'REFUNDED' ? 'bg-orange-100 text-orange-700' :
+                                  'bg-gray-100 text-gray-700'
+                            }`}>
                             {order.status}
                           </span>
                         </td>
@@ -392,7 +425,7 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
               </table>
             </div>
           </div>
-          
+
           {/* Pagination */}
           {pagination.totalPages > 1 && (
             <div className="bg-white px-4 sm:px-6 py-4 border border-gray-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
@@ -400,14 +433,14 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                 Showing page {pagination.page} of {pagination.totalPages} ({pagination.totalCount} total orders)
               </span>
               <div className="flex space-x-2">
-                <button 
+                <button
                   onClick={() => updateFilters('page', String(pagination.page - 1))}
                   disabled={pagination.page <= 1}
                   className="p-2 border border-gray-200 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <button 
+                <button
                   onClick={() => updateFilters('page', String(pagination.page + 1))}
                   disabled={pagination.page >= pagination.totalPages}
                   className="p-2 border border-gray-200 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

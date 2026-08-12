@@ -85,8 +85,8 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const type     = searchParams.get('type') ?? 'sales'   // 'sales' | 'ledger' | 'z-reports' | 'all'
-  const period   = searchParams.get('period') ?? 'all'
+  const type = searchParams.get('type') ?? 'sales'   // 'sales' | 'ledger' | 'z-reports' | 'all'
+  const period = searchParams.get('period') ?? 'all'
   const specificDate = searchParams.get('date') ?? null
 
   const supabase = await createClient()
@@ -99,7 +99,7 @@ export async function GET(request: Request) {
     .single()
 
   const storeName = settings?.store_name ?? 'Waffle Bay'
-  const currency  = settings?.currency_symbol ?? 'Rs.'
+  const currency = settings?.currency_symbol ?? 'Rs.'
 
   // ── Date range helpers ───────────────────────────────────────────────────────
   function getDateRange(): { start?: string; end?: string } {
@@ -107,30 +107,30 @@ export async function GET(request: Request) {
       const [y, m, d] = specificDate.split('-').map(Number)
       return {
         start: new Date(y, m - 1, d, 0, 0, 0, 0).toISOString(),
-        end:   new Date(y, m - 1, d, 23, 59, 59, 999).toISOString()
+        end: new Date(y, m - 1, d, 23, 59, 59, 999).toISOString()
       }
     }
     if (period === 'daily') return { start: new Date(new Date().setHours(0, 0, 0, 0)).toISOString() }
-    if (period === 'weekly')  { const d = new Date(); d.setDate(d.getDate() - 7);      return { start: d.toISOString() } }
-    if (period === 'monthly') { const d = new Date(); d.setMonth(d.getMonth() - 1);    return { start: d.toISOString() } }
-    if (period === 'yearly')  { const d = new Date(); d.setFullYear(d.getFullYear()-1); return { start: d.toISOString() } }
+    if (period === 'weekly') { const d = new Date(); d.setDate(d.getDate() - 7); return { start: d.toISOString() } }
+    if (period === 'monthly') { const d = new Date(); d.setMonth(d.getMonth() - 1); return { start: d.toISOString() } }
+    if (period === 'yearly') { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return { start: d.toISOString() } }
     return {}
   }
 
   function applyRange(q: any, col: string) {
     const { start, end } = getDateRange()
     if (start) q = q.gte(col, start)
-    if (end)   q = q.lte(col, end)
+    if (end) q = q.lte(col, end)
     return q
   }
 
   const periodLabel = specificDate
     ? `Date: ${specificDate}`
-    : period === 'daily'   ? `Daily – ${new Date().toLocaleDateString()}`
-    : period === 'weekly'  ? 'Last 7 Days'
-    : period === 'monthly' ? 'Last 30 Days'
-    : period === 'yearly'  ? 'Last 12 Months'
-    : 'All Time'
+    : period === 'daily' ? `Daily – ${new Date().toLocaleDateString()}`
+      : period === 'weekly' ? 'Last 7 Days'
+        : period === 'monthly' ? 'Last 30 Days'
+          : period === 'yearly' ? 'Last 12 Months'
+            : 'All Time'
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Build the Excel workbook
@@ -192,7 +192,7 @@ export async function GET(request: Request) {
 
     // Totals row
     const totalSales = (orders ?? []).reduce((s, o) => s + fmtNum(o.total), 0)
-    const totalTax   = (orders ?? []).reduce((s, o) => s + fmtNum(o.tax), 0)
+    const totalTax = (orders ?? []).reduce((s, o) => s + fmtNum(o.tax), 0)
     salesRows.push([])
     salesRows.push(['', '', '', '', '', '', 'TOTAL', '', fmtNum(totalTax), '', fmtNum(totalSales), '', ''])
 
@@ -231,7 +231,7 @@ export async function GET(request: Request) {
     ])
 
     // Totals row
-    const totalDebit  = (ledger ?? []).reduce((s, e) => s + fmtNum(e.debit), 0)
+    const totalDebit = (ledger ?? []).reduce((s, e) => s + fmtNum(e.debit), 0)
     const totalCredit = (ledger ?? []).reduce((s, e) => s + fmtNum(e.credit), 0)
     ledgerRows.push([])
     ledgerRows.push(['', '', '', '', '', 'TOTAL', fmtNum(totalDebit), fmtNum(totalCredit)])
@@ -287,8 +287,8 @@ export async function GET(request: Request) {
     })
 
     // Summary totals row
-    const totalSales   = (zReports ?? []).reduce((s, r) => s + fmtNum(r.total_sales), 0)
-    const totalOrders  = (zReports ?? []).reduce((s, r) => s + fmtNum(r.total_orders), 0)
+    const totalSales = (zReports ?? []).reduce((s, r) => s + fmtNum(r.total_sales), 0)
+    const totalOrders = (zReports ?? []).reduce((s, r) => s + fmtNum(r.total_orders), 0)
     zRows.push([])
     zRows.push(['', 'TOTAL', '', '', '', '', '', '', '', '', '', fmtNum(totalSales), fmtNum(totalOrders)])
 
