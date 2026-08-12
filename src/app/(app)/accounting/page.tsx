@@ -98,10 +98,13 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
 
         <div className="flex space-x-3">
           <CashManagementModal />
-          <button className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors">
+          <a 
+            href={`/api/export?type=ledger&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
+            className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors"
+          >
             <FileText className="w-5 h-5" />
-            <span>Export CSV</span>
-          </button>
+            <span>Export Ledger CSV</span>
+          </a>
         </div>
       </div>
 
@@ -134,10 +137,15 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
       {/* Z-Reports */}
       <div className="pt-4">
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-4 space-y-4 xl:space-y-0">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center">
-            <Receipt className="w-5 h-5 mr-2 text-gray-400" />
-            Z-Reports & Cash Flow
-          </h2>
+          <div className="flex items-center">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <Receipt className="w-5 h-5 mr-2 text-gray-400" />
+              Z-Reports & Cash Flow
+            </h2>
+            <a href={`/api/export?type=z-reports&period=${period}${specificDate ? '&date=' + specificDate : ''}`} className="ml-4 px-3 py-1.5 bg-[#FF6500] text-white text-[13px] font-bold rounded shadow-sm hover:bg-[#e65a00] flex items-center transition-colors">
+              <FileText className="w-4 h-4 mr-1.5" /> Export Z-Reports
+            </a>
+          </div>
           <div className="flex space-x-2 bg-gray-100 p-1 rounded-xl items-center overflow-x-auto w-full xl:w-auto pb-2 xl:pb-1">
             <div className="flex-shrink-0"><DatePickerFilter currentDate={specificDate} /></div>
             <div className="w-px h-6 bg-gray-300 mx-1 hidden sm:block flex-shrink-0"></div>
