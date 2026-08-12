@@ -96,29 +96,35 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
         {zError && <div className="bg-red-100 text-red-700 p-2 rounded w-full my-2">Z-Error: {zError.message}</div>}
         {lError && <div className="bg-red-100 text-red-700 p-2 rounded w-full my-2">L-Error: {lError.message}</div>}
 
-        <div className="flex flex-wrap gap-2 items-center">
-          <CashManagementModal />
-          <a 
-            href={`/api/export?type=ledger&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
-            className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors text-sm"
-          >
-            <FileText className="w-4 h-4" />
-            <span>Ledger (.xlsx)</span>
-          </a>
-          <a 
-            href={`/api/export?type=z-reports&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
-            className="bg-[#FF6500] hover:bg-[#e65a00] text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors text-sm"
-          >
-            <FileText className="w-4 h-4" />
-            <span>Z-Reports (.xlsx)</span>
-          </a>
-          <a 
-            href={`/api/export?type=all&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
-            className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors text-sm"
-          >
-            <FileText className="w-4 h-4" />
-            <span>Export All (.xlsx)</span>
-          </a>
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center w-full lg:w-auto">
+          {/* Timeline Filter Controls */}
+          <div className="flex flex-wrap gap-1.5 bg-gray-100 p-1 rounded-2xl items-center w-full lg:w-auto overflow-x-auto">
+            <div className="flex-shrink-0"><DatePickerFilter currentDate={specificDate} /></div>
+            <div className="w-px h-6 bg-gray-300 mx-1 hidden sm:block flex-shrink-0"></div>
+            <a href="/accounting?period=daily" className={`flex-shrink-0 px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all ${period === 'daily' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Daily</a>
+            <a href="/accounting?period=weekly" className={`flex-shrink-0 px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all ${period === 'weekly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Weekly</a>
+            <a href="/accounting?period=monthly" className={`flex-shrink-0 px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all ${period === 'monthly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Monthly</a>
+            <a href="/accounting?period=yearly" className={`flex-shrink-0 px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all ${period === 'yearly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Yearly</a>
+            <a href="/accounting?period=all" className={`flex-shrink-0 px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all ${period === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>All Time</a>
+          </div>
+
+          <div className="flex flex-wrap gap-2 items-center w-full lg:w-auto justify-end sm:justify-start">
+            <CashManagementModal />
+            <a 
+              href={`/api/export?type=ledger&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
+              className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2.5 rounded-xl shadow-sm flex items-center space-x-1.5 font-bold transition-all text-xs sm:text-sm"
+            >
+              <FileText className="w-4 h-4" />
+              <span>Ledger (.xlsx)</span>
+            </a>
+            <a 
+              href={`/api/export?type=z-reports&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
+              className="bg-[#FF6500] hover:bg-[#e65a00] text-white px-4 py-2.5 rounded-xl shadow-sm flex items-center space-x-1.5 font-bold transition-all text-xs sm:text-sm"
+            >
+              <FileText className="w-4 h-4" />
+              <span>Z-Reports (.xlsx)</span>
+            </a>
+          </div>
         </div>
       </div>
 
@@ -150,25 +156,11 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
 
       {/* Z-Reports */}
       <div className="pt-4">
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-4 space-y-4 xl:space-y-0">
-          <div className="flex items-center">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center">
-              <Receipt className="w-5 h-5 mr-2 text-gray-400" />
-              Z-Reports & Cash Flow
-            </h2>
-            <a href={`/api/export?type=z-reports&period=${period}${specificDate ? '&date=' + specificDate : ''}`} className="ml-4 px-3 py-1.5 bg-[#FF6500] text-white text-[13px] font-bold rounded shadow-sm hover:bg-[#e65a00] flex items-center transition-colors">
-              <FileText className="w-4 h-4 mr-1.5" /> Z-Reports (.xlsx)
-            </a>
-          </div>
-          <div className="flex space-x-2 bg-gray-100 p-1 rounded-xl items-center overflow-x-auto w-full xl:w-auto pb-2 xl:pb-1">
-            <div className="flex-shrink-0"><DatePickerFilter currentDate={specificDate} /></div>
-            <div className="w-px h-6 bg-gray-300 mx-1 hidden sm:block flex-shrink-0"></div>
-            <a href="/accounting?period=daily" className={`flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${period === 'daily' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Daily</a>
-            <a href="/accounting?period=weekly" className={`flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${period === 'weekly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Weekly</a>
-            <a href="/accounting?period=monthly" className={`flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${period === 'monthly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Monthly</a>
-            <a href="/accounting?period=yearly" className={`flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${period === 'yearly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Yearly</a>
-            <a href="/accounting?period=all" className={`flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${period === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>All Time</a>
-          </div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center">
+            <Receipt className="w-5 h-5 mr-2 text-gray-400" />
+            Z-Reports & Cash Flow
+          </h2>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
