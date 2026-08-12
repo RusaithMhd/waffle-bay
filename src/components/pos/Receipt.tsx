@@ -89,8 +89,10 @@ export function Receipt({ data, onClose }: ReceiptProps) {
           {/* Header */}
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-1">{settings.store_name}</h2>
-            <p className="text-sm text-gray-500">{settings.store_address}</p>
-            <div className="text-sm text-gray-500 mt-2">
+            {settings.store_address && <p className="text-sm text-gray-700 whitespace-pre-wrap">{settings.store_address}</p>}
+            {settings.receipt_header && <p className="text-sm text-gray-600 mt-2 italic">{settings.receipt_header}</p>}
+            
+            <div className="text-sm text-gray-500 mt-3 pt-3 border-t border-dashed border-gray-300">
               <p>Receipt #{data.receipt_id}</p>
               <p>{new Date(data.created_at).toLocaleString()}</p>
             </div>
@@ -161,10 +163,11 @@ export function Receipt({ data, onClose }: ReceiptProps) {
           </div>
 
           {/* Footer */}
-          <div className="text-center mt-8 text-gray-500 text-sm space-y-1">
-            <p>{settings.receipt_header}</p>
-            <p>{settings.receipt_footer}</p>
-          </div>
+          {settings.receipt_footer && (
+            <div className="text-center mt-8 text-gray-600 text-sm whitespace-pre-wrap font-medium italic">
+              <p>{settings.receipt_footer}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

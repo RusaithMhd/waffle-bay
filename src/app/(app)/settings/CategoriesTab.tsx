@@ -87,7 +87,7 @@ export function CategoriesTab({ categories }: { categories: any[] }) {
                 <input 
                   type="text" autoFocus placeholder="Name..." required
                   value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded outline-none"
+                  className="w-full p-2 border border-gray-300 rounded text-gray-900 outline-none"
                 />
               </div>
               <div className="md:col-span-5">
@@ -95,7 +95,7 @@ export function CategoriesTab({ categories }: { categories: any[] }) {
                 <input 
                   type="text" placeholder="Description..."
                   value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded outline-none"
+                  className="w-full p-2 border border-gray-300 rounded text-gray-900 outline-none"
                 />
               </div>
               <div className="md:col-span-2 flex items-center md:justify-center">
@@ -117,7 +117,7 @@ export function CategoriesTab({ categories }: { categories: any[] }) {
                     <input 
                       type="text" required
                       value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded outline-none"
+                      className="w-full p-2 border border-gray-300 rounded text-gray-900 outline-none"
                     />
                   </div>
                   <div className="md:col-span-5">
@@ -125,7 +125,7 @@ export function CategoriesTab({ categories }: { categories: any[] }) {
                     <input 
                       type="text"
                       value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded outline-none"
+                      className="w-full p-2 border border-gray-300 rounded text-gray-900 outline-none"
                     />
                   </div>
                   <div className="md:col-span-2 flex items-center md:justify-center space-x-2">
