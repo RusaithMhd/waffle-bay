@@ -16,6 +16,7 @@ export interface ReceiptData {
     name: string
     quantity: number
     price: number
+    notes?: string
     modifiers: Array<{ name: string, price: number }>
   }>
   payments: Array<{
@@ -28,14 +29,15 @@ export interface ReceiptData {
 interface ReceiptProps {
   data: ReceiptData | null
   onClose: () => void
+  autoPrint?: boolean
 }
 
-export function Receipt({ data, onClose }: ReceiptProps) {
+export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
   const printTriggered = useRef(false)
   const settings = useSettings()
 
   useEffect(() => {
-    if (data && !printTriggered.current) {
+    if (data && !printTriggered.current && autoPrint) {
       printTriggered.current = true
       
       // Allow DOM to render before calling print
