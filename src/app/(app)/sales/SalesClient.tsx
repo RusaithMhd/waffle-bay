@@ -36,6 +36,8 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
     const receiptData: ReceiptData = {
       order_number: order.order_number,
       receipt_id: `INV-${String(order.order_number).padStart(6, '0')}`,
+      kot_number: order.kot_number,
+      business_date: order.business_date,
       created_at: order.created_at,
       subtotal: Number(order.subtotal),
       tax: Number(order.tax),
@@ -252,12 +254,23 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-sm font-bold text-gray-900">
-                        INV-{String(order.order_number).padStart(6, '0')}
-                      </p>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
-                        {new Date(order.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                      </p>
+                      <div className="text-sm font-bold text-gray-900 flex items-center gap-1.5 flex-wrap">
+                        <span>INV-{String(order.order_number).padStart(6, '0')}</span>
+                        {order.kot_number && (
+                          <span className="text-[10px] font-black text-orange-705 bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded shadow-sm">
+                            KOT-{String(order.kot_number).padStart(3, '0')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-gray-400 mt-1 space-y-0.5">
+                        <p>
+                          Business Date:{' '}
+                          <span className="font-semibold text-gray-600">
+                            {order.business_date ? new Date(order.business_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                          </span>
+                        </p>
+                        <p>Created: {new Date(order.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</p>
+                      </div>
                     </div>
                     <div className="flex items-center space-x-1.5">
                       <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${
@@ -319,10 +332,24 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                         className="hover:bg-orange-50/50 cursor-pointer transition-colors group"
                       >
                         <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                          INV-{String(order.order_number).padStart(6, '0')}
+                          <div className="flex flex-col">
+                            <span>INV-{String(order.order_number).padStart(6, '0')}</span>
+                            {order.kot_number && (
+                              <span className="text-[11px] font-black text-orange-700 mt-0.5">
+                                KOT-{String(order.kot_number).padStart(3, '0')}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-500">
-                          {new Date(order.created_at).toLocaleString()}
+                          <div className="flex flex-col space-y-0.5">
+                            <span className="font-semibold text-gray-700">
+                              {order.business_date ? new Date(order.business_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                            </span>
+                            <span className="text-[11px] text-gray-400">
+                              Created: {new Date(order.created_at).toLocaleString()}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-0.5 text-xs font-bold rounded ${

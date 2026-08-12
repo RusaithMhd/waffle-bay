@@ -6,6 +6,7 @@ import { CheckCircle2 }     from 'lucide-react'
 import { KitchenHeader }    from './KitchenHeader'
 import { KitchenFilters, FilterStatus } from './KitchenFilters'
 import { KOTCard, KOTData, OrderStatus, ItemStatus } from './KOTCard'
+import { getBusinessDate } from '@/lib/dateUtils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
   const [updatingIds, setUpdatingIds]           = useState<Set<string>>(new Set())
   const [newOrderId, setNewOrderId]             = useState<string | null>(null)   // for new-order flash
   const [now, setNow]                           = useState(Date.now())             // single global timer tick
-  const [selectedDate, setSelectedDate]         = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate]         = useState(getBusinessDate(new Date()))
   const prevOrderIdsRef                         = useRef<Set<string>>(new Set())
 
   // ── Single global 1s timer ──────────────────────────────────────────────────
@@ -34,7 +35,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
   // ── Fetch orders ────────────────────────────────────────────────────────────
   const fetchOrders = useCallback(async () => {
     const selectQuery = `
-      id, order_number, fulfillment_status, order_type, created_at,
+      id, order_number, kot_number, business_date, fulfillment_status, order_type, created_at,
       order_items (
         id, product_name_snapshot, quantity, fulfillment_status, notes,
         order_item_modifiers ( modifier_name_snapshot )
@@ -51,8 +52,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
       .from('orders')
       .select(selectQuery)
       .eq('fulfillment_status', 'COMPLETED')
-      .gte('created_at', `${selectedDate}T00:00:00Z`)
-      .lte('created_at', `${selectedDate}T23:59:59.999Z`)
+      .eq('business_date', selectedDate)
       .order('created_at', { ascending: false })
 
     const [activeRes, completedRes] = await Promise.all([activeQuery, completedQuery])
@@ -67,6 +67,8 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
     const mapped: KOTData[] = allData.map(o => ({
       id:                 o.id,
       order_number:       o.order_number,
+      kot_number:         o.kot_number,
+      business_date:      o.business_date,
       fulfillment_status: o.fulfillment_status,
       order_type:         o.order_type,
       created_at:         o.created_at,

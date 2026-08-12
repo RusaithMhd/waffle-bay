@@ -86,6 +86,8 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
         const receiptData = {
           order_number: res.data.order_number,
           receipt_id: res.data.receipt_id,
+          kot_number: res.data.kot_number,
+          business_date: res.data.business_date,
           created_at: new Date().toISOString(),
           subtotal: payload.subtotal,
           tax: payload.tax,

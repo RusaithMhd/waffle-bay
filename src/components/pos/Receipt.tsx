@@ -7,6 +7,8 @@ import { useSettings } from '@/components/SettingsProvider'
 export interface ReceiptData {
   order_number: string
   receipt_id: string
+  kot_number?: number
+  business_date?: string
   created_at: string
   subtotal: number
   tax: number
@@ -111,9 +113,15 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
             {settings.store_address && <p className="text-xs text-gray-700 whitespace-pre-wrap">{settings.store_address}</p>}
             {settings.receipt_header && <p className="text-xs text-gray-600 mt-2 italic">{settings.receipt_header}</p>}
             
-            <div className="text-xs text-gray-500 mt-3 pt-3 border-t border-dashed border-gray-300">
-              <p>Receipt #{data.receipt_id}</p>
-              <p>{new Date(data.created_at).toLocaleString()}</p>
+            <div className="text-xs text-gray-700 mt-3 pt-3 border-t border-dashed border-gray-300 space-y-1">
+              <p className="font-bold text-[14px]">Invoice: {data.receipt_id}</p>
+              <p>
+                Business Date:{' '}
+                <span className="font-semibold">
+                  {data.business_date ? new Date(data.business_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                </span>
+              </p>
+              <p>Created: {new Date(data.created_at).toLocaleString()}</p>
             </div>
             {data.offline && <p className="text-xs border border-black inline-block px-1 mt-1 font-bold">OFFLINE MODE</p>}
           </div>

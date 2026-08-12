@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation'
 import { getCurrentUserWithRole } from '@/lib/auth'
 import { hasPermission } from '@/lib/rbac'
 import { AccessDenied } from '@/components/AccessDenied'
-import { SalesClient } from './SalesClient'
+import { SalesClient } from '@/app/(app)/sales/SalesClient'
+import { getBusinessDate } from '@/lib/dateUtils'
 
 export default async function SalesPage(props: { searchParams: Promise<{ period?: string, date?: string, search?: string, page?: string }> }) {
   const searchParams = await props.searchParams
@@ -22,11 +23,15 @@ export default async function SalesPage(props: { searchParams: Promise<{ period?
 
   const supabase = await createClient()
 
+  // Fetch Settings (to get store timezone)
+  const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single()
+  const timezone = settings?.timezone || 'Asia/Colombo'
+
   // 1. Build Orders Query for the table
   let ordersQuery = supabase
     .from('orders')
     .select(`
-      id, order_number, status, total, subtotal, tax, discount, order_type, created_at,
+      id, order_number, kot_number, business_date, status, total, subtotal, tax, discount, order_type, created_at,
       profiles:cashier_id ( first_name ),
       payments ( method, amount ),
       order_items (
@@ -40,7 +45,7 @@ export default async function SalesPage(props: { searchParams: Promise<{ period?
   let metricsQuery = supabase
     .from('orders')
     .select(`
-      id, total, status, created_at,
+      id, total, status, created_at, business_date,
       order_items (
         product_name_snapshot,
         quantity
@@ -56,36 +61,36 @@ export default async function SalesPage(props: { searchParams: Promise<{ period?
     }
   }
 
-  // Apply Date Filters
+  // Calculate Business Dates for filters
+  const today = new Date()
+  const currentBusinessDate = getBusinessDate(today, timezone)
+
+  // Apply Date Filters based on Business Date
   if (period === 'custom' && specificDate) {
-    const [year, month, day] = specificDate.split('-').map(Number)
-    const startOfDay = new Date(year, month - 1, day, 0,0,0,0).toISOString()
-    const endOfDay = new Date(year, month - 1, day, 23,59,59,999).toISOString()
-    ordersQuery = ordersQuery.gte('created_at', startOfDay).lte('created_at', endOfDay)
-    metricsQuery = metricsQuery.gte('created_at', startOfDay).lte('created_at', endOfDay)
+    ordersQuery = ordersQuery.eq('business_date', specificDate)
+    metricsQuery = metricsQuery.eq('business_date', specificDate)
   } else if (period === 'daily') {
-    const startOfDay = new Date(new Date().setHours(0,0,0,0)).toISOString()
-    ordersQuery = ordersQuery.gte('created_at', startOfDay)
-    metricsQuery = metricsQuery.gte('created_at', startOfDay)
+    ordersQuery = ordersQuery.eq('business_date', currentBusinessDate)
+    metricsQuery = metricsQuery.eq('business_date', currentBusinessDate)
   } else if (period === 'weekly') {
     const lastWeek = new Date()
     lastWeek.setDate(lastWeek.getDate() - 7)
-    ordersQuery = ordersQuery.gte('created_at', lastWeek.toISOString())
-    metricsQuery = metricsQuery.gte('created_at', lastWeek.toISOString())
+    const startBusinessDate = getBusinessDate(lastWeek, timezone)
+    ordersQuery = ordersQuery.gte('business_date', startBusinessDate)
+    metricsQuery = metricsQuery.gte('business_date', startBusinessDate)
   } else if (period === 'monthly') {
     const lastMonth = new Date()
     lastMonth.setMonth(lastMonth.getMonth() - 1)
-    ordersQuery = ordersQuery.gte('created_at', lastMonth.toISOString())
-    metricsQuery = metricsQuery.gte('created_at', lastMonth.toISOString())
+    const startBusinessDate = getBusinessDate(lastMonth, timezone)
+    ordersQuery = ordersQuery.gte('business_date', startBusinessDate)
+    metricsQuery = metricsQuery.gte('business_date', startBusinessDate)
   } else if (period === 'yearly') {
     const lastYear = new Date()
     lastYear.setFullYear(lastYear.getFullYear() - 1)
-    ordersQuery = ordersQuery.gte('created_at', lastYear.toISOString())
-    metricsQuery = metricsQuery.gte('created_at', lastYear.toISOString())
+    const startBusinessDate = getBusinessDate(lastYear, timezone)
+    ordersQuery = ordersQuery.gte('business_date', startBusinessDate)
+    metricsQuery = metricsQuery.gte('business_date', startBusinessDate)
   }
-
-  // Fetch Settings
-  const { data: settings } = await supabase.from('store_settings').select('*').eq('id', 1).single()
 
   // Apply Pagination to Table Query
   const from = (page - 1) * PAGE_SIZE
@@ -130,11 +135,17 @@ export default async function SalesPage(props: { searchParams: Promise<{ period?
   validMetrics.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
   
   validMetrics.forEach(order => {
-    const date = new Date(order.created_at)
     let key = ''
     if (period === 'daily') {
+      const date = new Date(order.created_at)
       key = date.toLocaleTimeString([], { hour: '2-digit', hour12: true }) // e.g., "10 AM"
+    } else if (order.business_date) {
+      // Parse business_date string and format it
+      const [y, m, d] = order.business_date.split('-').map(Number)
+      const date = new Date(y, m - 1, d)
+      key = date.toLocaleDateString([], { month: 'short', day: 'numeric' }) // e.g., "Aug 12"
     } else {
+      const date = new Date(order.created_at)
       key = date.toLocaleDateString([], { month: 'short', day: 'numeric' }) // e.g., "Aug 12"
     }
     trendDataMap.set(key, (trendDataMap.get(key) || 0) + Number(order.total))
