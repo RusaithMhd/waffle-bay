@@ -59,9 +59,10 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
       items: cart.map(item => ({
         product_id: item.product.id,
         product_name_snapshot: item.product.name,
-        unit_price_snapshot: item.product.base_price,
+        unit_price_snapshot: item.customPrice !== undefined ? item.customPrice : item.product.base_price,
         quantity: item.quantity,
         subtotal: item.itemTotal,
+        notes: item.note,
         modifiers: item.modifiers.map(mod => ({
           modifier_id: mod.id,
           modifier_name_snapshot: mod.name,
@@ -92,7 +93,8 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
           items: cart.map(i => ({
             name: i.product.name,
             quantity: i.quantity,
-            price: i.product.base_price,
+            price: i.customPrice !== undefined ? i.customPrice : i.product.base_price,
+            note: i.note,
             modifiers: i.modifiers.map(m => ({ name: m.name, price: m.price }))
           })),
           payments: payload.payments,

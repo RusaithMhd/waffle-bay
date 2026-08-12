@@ -14,6 +14,7 @@ export interface CheckoutPayload {
     unit_price_snapshot: number
     quantity: number
     subtotal: number
+    notes?: string
     modifiers: Array<{
       modifier_id: string
       modifier_name_snapshot: string

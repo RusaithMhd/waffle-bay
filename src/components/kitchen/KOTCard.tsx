@@ -11,6 +11,7 @@ export interface KOTItemData {
   product_name_snapshot: string
   quantity: number
   fulfillment_status: ItemStatus
+  notes?: string
   modifiers: { modifier_name_snapshot: string }[]
 }
 
@@ -139,6 +140,12 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, 
                     {item.product_name_snapshot}
                   </span>
                 </div>
+                {/* Note */}
+                {item.notes && (
+                  <div className="mt-1 pl-7 text-[13px] text-[#FF6500] font-medium leading-snug">
+                    <span className="font-bold">Note:</span> {item.notes}
+                  </div>
+                )}
                 {/* Modifiers */}
                 {item.modifiers.length > 0 && (
                   <div className="mt-1.5 pl-7 space-y-0.5">
