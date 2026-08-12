@@ -83,6 +83,20 @@ export async function updateStaffUser(userId: string, firstName: string, lastNam
   return { success: true }
 }
 
+export async function updateStaffPassword(userId: string, newPassword: string) {
+  const supabase = await createClient()
+  const { data: { user: caller } } = await supabase.auth.getUser()
+  if (!caller) return { success: false, error: 'Unauthorized' }
+
+  const admin = createAdminClient()
+  const { error: authError } = await admin.auth.admin.updateUserById(userId, {
+    password: newPassword
+  })
+
+  if (authError) return { success: false, error: authError.message }
+  return { success: true }
+}
+
 export async function deleteStaffUser(userId: string) {
   const supabase = await createClient()
   const { data: { user: caller } } = await supabase.auth.getUser()

@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { updateUserRole }  from '@/app/actions/settings'
-import { createStaffUser, updateStaffUser, deleteStaffUser } from '@/app/actions/staff'
-import { UserCog, Plus, X, Eye, EyeOff, ChefHat, Store, Loader2, CheckCircle, Edit2, Trash2 } from 'lucide-react'
+import { createStaffUser, updateStaffUser, deleteStaffUser, updateStaffPassword } from '@/app/actions/staff'
+import { UserCog, Plus, X, Eye, EyeOff, ChefHat, Store, Loader2, CheckCircle, Edit2, Trash2, Key } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 interface Profile {
   id: string
@@ -42,6 +43,15 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ firstName: '', lastName: '' })
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Delete state
+  const [userToDelete, setUserToDelete] = useState<string | null>(null)
+
+  // Password change state
+  const [passwordChangeId, setPasswordChangeId] = useState<string | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
 
   const [form, setForm] = useState({
     firstName: '',
@@ -109,16 +119,38 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
     setIsProcessing(false)
   }
 
-  const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return
+  const confirmDelete = async () => {
+    if (!userToDelete) return
     setIsProcessing(true)
-    const res = await deleteStaffUser(userId)
+    const res = await deleteStaffUser(userToDelete)
     if (res.success) {
       toast.success('Staff account deleted!')
     } else {
       toast.error(`Error: ${res.error}`)
     }
     setIsProcessing(false)
+    setUserToDelete(null)
+  }
+
+  const handleDelete = (userId: string) => {
+    setUserToDelete(userId)
+  }
+
+  const handleChangePassword = async (userId: string) => {
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    setIsChangingPassword(true)
+    const res = await updateStaffPassword(userId, newPassword)
+    if (res.success) {
+      toast.success('Password updated successfully!')
+      setPasswordChangeId(null)
+      setNewPassword('')
+    } else {
+      toast.error(`Error: ${res.error}`)
+    }
+    setIsChangingPassword(false)
   }
 
   // Find display role name
@@ -211,7 +243,7 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
                   placeholder="e.g. John"
                   value={form.firstName}
                   onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-[14px] focus:outline-none focus:border-[#FF6500] focus:ring-1 focus:ring-[#FF6500] bg-white"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-[14px] text-gray-900 focus:outline-none focus:border-[#FF6500] focus:ring-1 focus:ring-[#FF6500] bg-white"
                 />
               </div>
               <div>
@@ -221,7 +253,7 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
                   placeholder="e.g. Doe"
                   value={form.lastName}
                   onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-[14px] focus:outline-none focus:border-[#FF6500] bg-white"
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-[14px] text-gray-900 focus:outline-none focus:border-[#FF6500] bg-white"
                 />
               </div>
             </div>
@@ -235,7 +267,7 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
                 placeholder="staff@wafflebay.com"
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-[14px] focus:outline-none focus:border-[#FF6500] focus:ring-1 focus:ring-[#FF6500] bg-white"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-[14px] text-gray-900 focus:outline-none focus:border-[#FF6500] focus:ring-1 focus:ring-[#FF6500] bg-white"
               />
             </div>
 
@@ -250,7 +282,7 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
                   minLength={8}
                   value={form.password}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                  className="w-full pl-3 pr-10 py-2.5 border border-gray-200 rounded-xl text-[14px] focus:outline-none focus:border-[#FF6500] focus:ring-1 focus:ring-[#FF6500] bg-white"
+                  className="w-full pl-3 pr-10 py-2.5 border border-gray-200 rounded-xl text-[14px] text-gray-900 focus:outline-none focus:border-[#FF6500] focus:ring-1 focus:ring-[#FF6500] bg-white"
                 />
                 <button
                   type="button"
@@ -292,6 +324,34 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
             const roleName = getRoleName(user.role_id)
             const roleKey  = roleName?.toLowerCase() || ''
             
+            if (passwordChangeId === user.id) {
+              return (
+                <div key={user.id} className="p-4 md:px-6 md:py-4 bg-orange-50 flex flex-col space-y-4">
+                  <div className="font-medium text-gray-900 mb-2">Change Password for {user.first_name || user.email}</div>
+                  <div className="relative max-w-sm">
+                    <input 
+                      type={showNewPassword ? 'text' : 'password'}
+                      placeholder="New password (min 8 chars)"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      className="w-full pl-3 pr-10 py-2.5 border border-gray-300 rounded-lg text-[14px] text-gray-900 outline-none focus:border-orange-500 bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button onClick={() => handleChangePassword(user.id)} disabled={isChangingPassword || newPassword.length < 8} className="bg-orange-500 text-white font-medium px-4 py-2 rounded-lg hover:bg-orange-600 disabled:opacity-50">Save Password</button>
+                    <button onClick={() => { setPasswordChangeId(null); setNewPassword('') }} disabled={isChangingPassword} className="text-gray-600 font-medium px-4 py-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 border border-gray-200 bg-white">Cancel</button>
+                  </div>
+                </div>
+              )
+            }
+            
             if (editingId === user.id) {
               return (
                 <div key={user.id} className="p-4 md:px-6 md:py-4 bg-orange-50 md:grid md:grid-cols-12 md:gap-4 md:items-center flex flex-col space-y-3 md:space-y-0">
@@ -300,13 +360,13 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
                     <input 
                       type="text" required
                       value={editForm.firstName} onChange={e => setEditForm({ ...editForm, firstName: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded outline-none"
+                      className="w-full p-2 border border-gray-300 rounded outline-none text-gray-900"
                     />
                     <label className="text-xs font-semibold text-gray-500 uppercase md:hidden block mt-2">Last Name</label>
                     <input 
                       type="text"
                       value={editForm.lastName} onChange={e => setEditForm({ ...editForm, lastName: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded outline-none"
+                      className="w-full p-2 border border-gray-300 rounded outline-none text-gray-900"
                     />
                   </div>
                   <div className="md:col-span-3 text-gray-500 hidden md:block">{user.email}</div>
@@ -356,7 +416,7 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
                     value={user.role_id || ''}
                     onChange={(e) => handleRoleChange(user.id, e.target.value)}
                     disabled={updatingId === user.id || editingId !== null}
-                    className="w-full md:w-auto px-3 py-2 border border-gray-200 rounded-lg text-[13px] focus:outline-none focus:border-[#FF6500] bg-white disabled:opacity-50 min-w-[130px]"
+                    className="w-full md:w-auto px-3 py-2 border border-gray-200 rounded-lg text-[13px] text-gray-900 focus:outline-none focus:border-[#FF6500] bg-white disabled:opacity-50 min-w-[130px]"
                   >
                     <option value="" disabled>No Role</option>
                     {roles.map(r => (
@@ -365,6 +425,10 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
                   </select>
                 </div>
                 <div className="md:col-span-2 flex justify-end space-x-2 mt-3 md:mt-0 pt-3 md:pt-0 border-t border-gray-100 md:border-none">
+                  <button onClick={() => setPasswordChangeId(user.id)} disabled={isProcessing || editingId !== null} className="flex-1 md:flex-none flex items-center justify-center text-orange-600 hover:text-orange-800 py-2 md:p-2 rounded-lg hover:bg-orange-50 transition-colors disabled:opacity-50 border border-orange-100 md:border-transparent" title="Change Password">
+                    <Key className="w-4 h-4" />
+                    <span className="md:hidden font-medium text-sm ml-2">Password</span>
+                  </button>
                   <button onClick={() => startEdit(user)} disabled={isProcessing || editingId !== null} className="flex-1 md:flex-none flex items-center justify-center text-blue-600 hover:text-blue-800 py-2 md:p-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 border border-blue-100 md:border-transparent">
                     <Edit2 className="w-4 h-4 md:mr-0 mr-2" />
                     <span className="md:hidden font-medium text-sm">Edit</span>
@@ -384,6 +448,17 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
           )}
         </div>
       </div>
+
+      {userToDelete && (
+        <ConfirmDialog
+          title="Delete Staff User"
+          message="Are you sure you want to delete this staff user? They will immediately lose access to the system."
+          confirmText="Delete User"
+          isDestructive={true}
+          onConfirm={confirmDelete}
+          onCancel={() => setUserToDelete(null)}
+        />
+      )}
     </div>
   )
 }

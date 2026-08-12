@@ -42,7 +42,7 @@ export function StoreConfigTab({ settings }: { settings: any }) {
               type="text"
               value={formData.store_name}
               onChange={e => setFormData({ ...formData, store_name: e.target.value })}
-              className="w-full p-3 border border-gray-200 rounded-xl focus:border-orange-500 outline-none"
+              className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
             />
           </div>
           <div>
@@ -52,7 +52,7 @@ export function StoreConfigTab({ settings }: { settings: any }) {
               type="text"
               value={formData.currency_symbol}
               onChange={e => setFormData({ ...formData, currency_symbol: e.target.value })}
-              className="w-full p-3 border border-gray-200 rounded-xl focus:border-orange-500 outline-none"
+              className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
             />
           </div>
         </div>
@@ -63,7 +63,7 @@ export function StoreConfigTab({ settings }: { settings: any }) {
             type="text"
             value={formData.store_address}
             onChange={e => setFormData({ ...formData, store_address: e.target.value })}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:border-orange-500 outline-none"
+            className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
           />
         </div>
 
@@ -76,7 +76,7 @@ export function StoreConfigTab({ settings }: { settings: any }) {
             min="0"
             value={formData.tax_rate}
             onChange={e => setFormData({ ...formData, tax_rate: Number(e.target.value) })}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:border-orange-500 outline-none"
+            className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
           />
         </div>
 
@@ -86,7 +86,7 @@ export function StoreConfigTab({ settings }: { settings: any }) {
             type="text"
             value={formData.receipt_header}
             onChange={e => setFormData({ ...formData, receipt_header: e.target.value })}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:border-orange-500 outline-none"
+            className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
           />
         </div>
 
@@ -96,7 +96,7 @@ export function StoreConfigTab({ settings }: { settings: any }) {
             type="text"
             value={formData.receipt_footer}
             onChange={e => setFormData({ ...formData, receipt_footer: e.target.value })}
-            className="w-full p-3 border border-gray-200 rounded-xl focus:border-orange-500 outline-none"
+            className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
           />
         </div>
 
