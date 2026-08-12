@@ -62,7 +62,7 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
   if (!data) return null
 
   return (
-    <div className="fixed inset-0 bg-white z-[100] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] overflow-y-auto flex items-start justify-center p-4 sm:p-8 print:p-0 print:bg-white">
       {/* 
         This div models an 80mm receipt (roughly 302px).
         It centers on screen but prints precisely due to CSS print rules.
@@ -86,15 +86,32 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
         }
       `}} />
       
-      <div className="min-h-screen flex items-start justify-center p-8 print:p-0 bg-gray-100 print:bg-white">
-        <div id="printable-receipt" className="w-[302px] bg-white p-4 font-mono text-sm text-black">
+      <div className="flex flex-col items-center w-full max-w-[340px] print:max-w-none my-auto">
+        {/* Actions panel */}
+        <div className="w-[302px] mb-4 flex justify-between gap-3 print:hidden">
+          <button 
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 bg-white text-gray-800 border border-gray-200 font-semibold text-sm rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-md flex items-center justify-center"
+          >
+            Close
+          </button>
+          <button 
+            onClick={() => window.print()}
+            className="flex-1 px-4 py-2.5 bg-[#FF6500] text-white font-semibold text-sm rounded-xl hover:bg-[#e65a00] active:scale-95 transition-all shadow-md flex items-center justify-center space-x-1.5"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Print Receipt</span>
+          </button>
+        </div>
+
+        <div id="printable-receipt" className="w-[302px] bg-white p-6 font-mono text-sm text-black shadow-2xl rounded-2xl print:shadow-none print:rounded-none">
           {/* Header */}
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-1">{settings.store_name}</h2>
-            {settings.store_address && <p className="text-sm text-gray-700 whitespace-pre-wrap">{settings.store_address}</p>}
-            {settings.receipt_header && <p className="text-sm text-gray-600 mt-2 italic">{settings.receipt_header}</p>}
+            {settings.store_address && <p className="text-xs text-gray-700 whitespace-pre-wrap">{settings.store_address}</p>}
+            {settings.receipt_header && <p className="text-xs text-gray-600 mt-2 italic">{settings.receipt_header}</p>}
             
-            <div className="text-sm text-gray-500 mt-3 pt-3 border-t border-dashed border-gray-300">
+            <div className="text-xs text-gray-500 mt-3 pt-3 border-t border-dashed border-gray-300">
               <p>Receipt #{data.receipt_id}</p>
               <p>{new Date(data.created_at).toLocaleString()}</p>
             </div>

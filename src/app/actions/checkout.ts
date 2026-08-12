@@ -8,6 +8,7 @@ export interface CheckoutPayload {
   tax: number
   discount: number
   total: number
+  order_type: 'DINE_IN' | 'TAKEAWAY'
   items: Array<{
     product_id: string
     product_name_snapshot: string

@@ -11,14 +11,26 @@ export interface CartItem {
   customPrice?: number
 }
 
+export interface HeldOrder {
+  id: string
+  name: string
+  cart: CartItem[]
+  orderType: 'DINE_IN' | 'TAKEAWAY'
+  discountPercent: number
+  created_at: number
+}
+
 interface PosState {
   cart: CartItem[]
   discountPercent: number
   taxRatePercent: number
   activeCategoryId: string | null
+  orderType: 'DINE_IN' | 'TAKEAWAY'
+  heldOrders: HeldOrder[]
 
   // Actions
   setActiveCategory: (id: string | null) => void
+  setOrderType: (type: 'DINE_IN' | 'TAKEAWAY') => void
   addToCart: (product: Product, modifiers: Modifier[], quantity: number, note?: string) => void
   updateQuantity: (itemId: string, delta: number) => void
   updateCartItemDetails: (itemId: string, note?: string, customPrice?: number) => void
@@ -26,6 +38,11 @@ interface PosState {
   clearCart: () => void
   setDiscount: (percent: number) => void
   setTaxRate: (percent: number) => void
+  setHeldOrders: (orders: HeldOrder[]) => void
+  loadHeldOrders: () => void
+  holdOrder: (name: string) => void
+  resumeOrder: (id: string) => void
+  deleteHeldOrder: (id: string) => void
 
   // Computed equivalent getters
   getSubtotal: () => number
@@ -52,8 +69,70 @@ export const usePosStore = create<PosState>((set, get) => ({
   discountPercent: 0,
   taxRatePercent: 0, // Defaults can be updated from DB settings later
   activeCategoryId: null,
+  orderType: 'DINE_IN',
+  heldOrders: [],
 
   setActiveCategory: (id) => set({ activeCategoryId: id }),
+  setOrderType: (type) => set({ orderType: type }),
+  setHeldOrders: (orders) => set({ heldOrders: orders }),
+
+  loadHeldOrders: () => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('wb_held_orders')
+      if (saved) {
+        try {
+          set({ heldOrders: JSON.parse(saved) })
+        } catch (e) {
+          console.error('Error loading held orders:', e)
+        }
+      }
+    }
+  },
+
+  holdOrder: (name) => {
+    set((state) => {
+      if (state.cart.length === 0) return {}
+      const newHeld: HeldOrder = {
+        id: Date.now().toString(),
+        name: name || `Order #${Date.now().toString().slice(-4)}`,
+        cart: state.cart,
+        orderType: state.orderType,
+        discountPercent: state.discountPercent,
+        created_at: Date.now()
+      }
+      const updated = [...state.heldOrders, newHeld]
+      localStorage.setItem('wb_held_orders', JSON.stringify(updated))
+      return {
+        heldOrders: updated,
+        cart: [],
+        discountPercent: 0,
+        orderType: 'DINE_IN'
+      }
+    })
+  },
+
+  resumeOrder: (id) => {
+    set((state) => {
+      const order = state.heldOrders.find(o => o.id === id)
+      if (!order) return {}
+      const updated = state.heldOrders.filter(o => o.id !== id)
+      localStorage.setItem('wb_held_orders', JSON.stringify(updated))
+      return {
+        heldOrders: updated,
+        cart: order.cart,
+        orderType: order.orderType,
+        discountPercent: order.discountPercent
+      }
+    })
+  },
+
+  deleteHeldOrder: (id) => {
+    set((state) => {
+      const updated = state.heldOrders.filter(o => o.id !== id)
+      localStorage.setItem('wb_held_orders', JSON.stringify(updated))
+      return { heldOrders: updated }
+    })
+  },
 
   addToCart: (product, modifiers, quantity, note) => {
     set((state) => {
@@ -138,7 +217,7 @@ export const usePosStore = create<PosState>((set, get) => ({
     }))
   },
 
-  clearCart: () => set({ cart: [], discountPercent: 0 }),
+  clearCart: () => set({ cart: [], discountPercent: 0, orderType: 'DINE_IN' }),
 
   setDiscount: (percent) => set({ discountPercent: Math.max(0, Math.min(100, percent)) }),
   
