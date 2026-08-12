@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Product, Category, ModifierGroup, Modifier } from '@/types'
 import { usePosStore, CartItem } from '@/stores/usePosStore'
-import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon, LogOut, Edit2, Coffee, ShoppingBag } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon, LogOut, Edit2, Coffee, ShoppingBag, Settings } from 'lucide-react'
 import { PaymentModal } from './PaymentModal'
 import { useEffect } from 'react'
 import { SyncService } from '@/services/sync'
@@ -13,6 +13,7 @@ import { Receipt, ReceiptData } from './Receipt'
 import { ShiftBlocker, CloseShiftButton, CloseShiftModal } from './ShiftManager'
 import { useSettings } from '@/components/SettingsProvider'
 import { createClient } from '@/lib/supabase/client'
+import { getBusinessDate } from '@/lib/dateUtils'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -164,11 +165,80 @@ export function PosApp({
   const [isHeldListOpen, setIsHeldListOpen] = useState(false)
   const [showOrderTypePrompt, setShowOrderTypePrompt] = useState(false)
 
+  // KOT Session Manager states
+  const [isKOTManagerOpen, setIsKOTManagerOpen] = useState(false)
+  const [kotManagerBusinessDate, setKotManagerBusinessDate] = useState('')
+  const [kotCurrentCount, setKotCurrentCount] = useState<number | null>(null)
+  const [kotNewNumber, setKotNewNumber] = useState<string>('')
+  const [kotReason, setKotReason] = useState('')
+  const [kotAuditLogs, setKotAuditLogs] = useState<any[]>([])
+  const [isKOTProcessing, setIsKOTProcessing] = useState(false)
+
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
     window.location.href = '/login'
   }
+
+  const loadKOTManagerData = async () => {
+    const supabase = createClient()
+    const bDate = getBusinessDate(new Date(), settings.timezone || 'Asia/Colombo')
+    setKotManagerBusinessDate(bDate)
+    
+    // Fetch current counter
+    const { data: counterData } = await supabase
+      .from('kot_counters')
+      .select('last_value')
+      .eq('business_date', bDate)
+      .maybeSingle()
+      
+    setKotCurrentCount(counterData?.last_value ?? 0)
+    
+    // Fetch audit logs
+    const { data: logs } = await supabase
+      .from('kot_audit_logs')
+      .select(`
+        created_at, old_number, new_number, reason, business_date,
+        profiles:cashier_id ( first_name )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(10)
+      
+    setKotAuditLogs(logs || [])
+  }
+
+  const handleAdjustKOT = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!kotNewNumber || !kotReason.trim()) {
+      alert('Please specify the new KOT sequence number and reason.')
+      return
+    }
+    
+    setIsKOTProcessing(true)
+    const supabase = createClient()
+    
+    const { data, error } = await supabase.rpc('adjust_kot_counter', {
+      p_business_date: kotManagerBusinessDate,
+      p_new_number: parseInt(kotNewNumber),
+      p_reason: kotReason
+    })
+    
+    setIsKOTProcessing(false)
+    if (error) {
+      alert(error.message)
+    } else {
+      alert('KOT Counter successfully updated!')
+      setKotNewNumber('')
+      setKotReason('')
+      loadKOTManagerData()
+    }
+  }
+
+  useEffect(() => {
+    if (isKOTManagerOpen) {
+      loadKOTManagerData()
+    }
+  }, [isKOTManagerOpen])
 
   // Sync menu locally on load
   useEffect(() => {
@@ -390,6 +460,18 @@ export function PosApp({
                   )}
                   <div className="h-px bg-[#E5E7EB] my-1" />
                   <Link href="/kitchen" className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors block">Kitchen Display (KOT)</Link>
+                  {(userRole === 'admin' || userRole === 'manager') && (
+                    <>
+                      <div className="h-px bg-[#E5E7EB] my-1" />
+                      <button 
+                        onClick={() => { setShowMoreMenu(false); setIsKOTManagerOpen(true); }}
+                        className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#FF6500] hover:bg-orange-50 transition-colors flex items-center"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        KOT Session
+                      </button>
+                    </>
+                  )}
                   <div className="h-px bg-[#E5E7EB] my-1" />
                   <button 
                     onClick={handleLogout}
@@ -815,6 +897,127 @@ export function PosApp({
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* KOT Session Manager Modal */}
+      {isKOTManagerOpen && (
+        <div className="fixed inset-0 bg-gray-900/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div>
+                <h3 className="text-lg font-black text-gray-950 flex items-center">
+                  <Settings className="w-5 h-5 mr-2 text-[#FF6500]" /> KOT Session Manager
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">Manage daily queue sequence counters</p>
+              </div>
+              <button 
+                onClick={() => setIsKOTManagerOpen(false)}
+                className="p-1.5 hover:bg-gray-100 rounded-full transition-all text-gray-500 active:scale-90"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Current business day stats */}
+              <div className="bg-orange-50/60 border border-orange-100 p-4 rounded-2xl grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-orange-600 font-bold uppercase tracking-wider">Business Date</p>
+                  <p className="text-lg font-black text-gray-900 mt-0.5">
+                    {kotManagerBusinessDate ? new Date(kotManagerBusinessDate + 'T00:00:00').toLocaleDateString([], { dateStyle: 'medium' }) : 'Loading...'}
+                  </p>
+                  <p className="text-[10px] text-gray-400 mt-1">Reset point: 6:00 AM daily</p>
+                </div>
+                <div>
+                  <p className="text-xs text-orange-600 font-bold uppercase tracking-wider">Current KOT Count</p>
+                  <p className="text-2xl font-black text-gray-900 mt-0.5">
+                    {kotCurrentCount !== null ? String(kotCurrentCount).padStart(3, '0') : '...'}
+                  </p>
+                  <p className="text-[10px] text-gray-400 mt-1">Next KOT will be: {kotCurrentCount !== null ? String(kotCurrentCount + 1).padStart(3, '0') : '...'}</p>
+                </div>
+              </div>
+
+              {/* Adjust KOT Counter form */}
+              <form onSubmit={handleAdjustKOT} className="space-y-4">
+                <h4 className="font-bold text-gray-900 text-sm">Force Reset / Adjust Sequence</h4>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">New KOT Number</label>
+                    <input
+                      type="number"
+                      value={kotNewNumber}
+                      onChange={e => setKotNewNumber(e.target.value)}
+                      placeholder="e.g. 1"
+                      min={0}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6500]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">Target Business Date</label>
+                    <input
+                      type="text"
+                      value={kotManagerBusinessDate}
+                      disabled
+                      className="w-full border border-gray-100 bg-gray-50 text-gray-500 rounded-xl px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1">Reason for Adjustment</label>
+                  <input
+                    type="text"
+                    value={kotReason}
+                    onChange={e => setKotReason(e.target.value)}
+                    placeholder="e.g. Testing reset / Counter discrepancy"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6500]"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isKOTProcessing || !kotNewNumber || !kotReason.trim()}
+                  className="w-full py-2.5 bg-[#FF6500] hover:bg-[#e65a00] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl transition-all shadow-sm flex items-center justify-center active:scale-[0.98]"
+                >
+                  {isKOTProcessing ? 'Processing...' : 'Apply Adjustment'}
+                </button>
+              </form>
+
+              {/* Audit Logs */}
+              <div className="space-y-3">
+                <h4 className="font-bold text-gray-900 text-sm">Sequence Override Audit Logs</h4>
+                {kotAuditLogs.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No override audits recorded recently.</p>
+                ) : (
+                  <div className="border border-gray-100 rounded-xl divide-y divide-gray-50 bg-white max-h-[160px] overflow-y-auto">
+                    {kotAuditLogs.map((log, i) => (
+                      <div key={i} className="p-3 text-xs flex justify-between items-start gap-4">
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-gray-900">{log.reason}</p>
+                          <p className="text-[10px] text-gray-400">
+                            By: {log.profiles?.first_name || 'System'} | Business Date: {log.business_date}
+                          </p>
+                          <p className="text-[9px] text-gray-400">
+                            {new Date(log.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] font-bold text-gray-500 block">Override</span>
+                          <span className="font-bold text-orange-700">
+                            {String(log.old_number).padStart(3, '0')} → {String(log.new_number).padStart(3, '0')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

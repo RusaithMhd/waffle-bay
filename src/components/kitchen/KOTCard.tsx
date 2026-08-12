@@ -18,6 +18,8 @@ export interface KOTItemData {
 export interface KOTData {
   id: string
   order_number: number
+  kot_number?: number
+  business_date?: string
   fulfillment_status: OrderStatus
   order_type?: 'DINE_IN' | 'TAKEAWAY'
   created_at: string
@@ -92,11 +94,23 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, 
       {/* ── Card Header ── */}
       <div className={`px-4 py-3 flex items-center justify-between shrink-0 border-b border-white/40 ${isReady ? 'bg-emerald-50/80' : 'bg-white/40'}`}>
         <div>
-          <div className="flex items-center space-x-2">
-            <span className="text-slate-900 font-black text-[22px] leading-none tracking-tight">#{order.order_number}</span>
-            <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${cfg.badge.bg} ${cfg.badge.text}`}>
-              {cfg.badge.label}
-            </span>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-slate-900 font-black text-[22px] leading-none tracking-tight">
+                {order.kot_number ? `KOT-${String(order.kot_number).padStart(3, '0')}` : 'KOT-???'}
+              </span>
+              <span className="text-[12px] font-bold text-slate-500 shrink-0">
+                (INV-{String(order.order_number).padStart(6, '0')})
+              </span>
+              <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md shrink-0 ${cfg.badge.bg} ${cfg.badge.text}`}>
+                {cfg.badge.label}
+              </span>
+            </div>
+            {order.business_date && (
+              <span className="text-[9px] font-semibold text-slate-400 mt-1">
+                Business Date: {new Date(order.business_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+            )}
           </div>
           <div className="flex items-center space-x-2 mt-1">
             <span className="text-[11px] text-slate-500 font-semibold">

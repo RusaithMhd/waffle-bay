@@ -10,6 +10,7 @@ export interface StoreSettings {
   tax_rate: number
   receipt_header: string
   receipt_footer: string
+  timezone?: string
 }
 
 const SettingsContext = createContext<StoreSettings | null>(null)
