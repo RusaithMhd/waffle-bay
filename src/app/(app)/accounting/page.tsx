@@ -4,8 +4,14 @@ import { TrendingUp, TrendingDown, DollarSign, Receipt, FileText } from 'lucide-
 import { getCurrentUserWithRole } from '@/lib/auth'
 import { hasPermission }          from '@/lib/rbac'
 import { AccessDenied }           from '@/components/AccessDenied'
+import { DatePickerFilter }       from './DatePickerFilter'
+import { CashManagementModal }    from './CashManagementModal'
 
-export default async function AccountingPage() {
+export default async function AccountingPage(props: { searchParams: Promise<{ period?: string, date?: string }> }) {
+  const searchParams = await props.searchParams
+  const period = searchParams.period || (searchParams.date ? 'custom' : 'all')
+  const specificDate = searchParams.date
+
   const userWithRole = await getCurrentUserWithRole()
   if (!userWithRole) redirect('/login')
 
@@ -15,30 +21,71 @@ export default async function AccountingPage() {
 
   const supabase = await createClient()
 
-  // Fetch all accounting data concurrently
+  let zReportsQuery = supabase.from('z_reports_view').select('*').order('opened_at', { ascending: false }).limit(50)
+  let ledgerQuery = supabase.from('accounting_ledger').select('*').order('created_at', { ascending: false }).limit(100)
+  
+  if (period === 'custom' && specificDate) {
+    const [year, month, day] = specificDate.split('-').map(Number)
+    const startOfDay = new Date(year, month - 1, day, 0,0,0,0)
+    const endOfDay = new Date(year, month - 1, day, 23,59,59,999)
+    zReportsQuery = zReportsQuery.gte('opened_at', startOfDay.toISOString()).lte('opened_at', endOfDay.toISOString())
+    ledgerQuery = ledgerQuery.gte('created_at', startOfDay.toISOString()).lte('created_at', endOfDay.toISOString())
+  } else if (period === 'daily') {
+    zReportsQuery = zReportsQuery.gte('opened_at', new Date(new Date().setHours(0,0,0,0)).toISOString())
+    ledgerQuery = ledgerQuery.gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString())
+  } else if (period === 'weekly') {
+    const lastWeek = new Date()
+    lastWeek.setDate(lastWeek.getDate() - 7)
+    zReportsQuery = zReportsQuery.gte('opened_at', lastWeek.toISOString())
+    ledgerQuery = ledgerQuery.gte('created_at', lastWeek.toISOString())
+  } else if (period === 'monthly') {
+    const lastMonth = new Date()
+    lastMonth.setMonth(lastMonth.getMonth() - 1)
+    zReportsQuery = zReportsQuery.gte('opened_at', lastMonth.toISOString())
+    ledgerQuery = ledgerQuery.gte('created_at', lastMonth.toISOString())
+  } else if (period === 'yearly') {
+    const lastYear = new Date()
+    lastYear.setFullYear(lastYear.getFullYear() - 1)
+    zReportsQuery = zReportsQuery.gte('opened_at', lastYear.toISOString())
+    ledgerQuery = ledgerQuery.gte('created_at', lastYear.toISOString())
+  }
+
   const [
     { data: settings },
     { data: plData },
-    { data: zReports }
+    { data: zReports, error: zError },
+    { data: ledgerEntries, error: lError },
+    { data: profiles }
   ] = await Promise.all([
     supabase.from('store_settings').select('*').eq('id', 1).single(),
     supabase.from('pl_summary_view').select('*').order('period', { ascending: false }).limit(1).single(),
-    supabase.from('z_reports_view').select('*').order('opened_at', { ascending: false }).limit(10)
+    zReportsQuery,
+    ledgerQuery,
+    supabase.from('profiles').select('id, first_name')
   ])
+
+  const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p.first_name]))
 
   const currencySymbol = settings?.currency_symbol || 'Rs.'
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Accounting & Finance</h1>
           <p className="text-gray-500 mt-2">Profit & Loss, Z-Reports, and Ledger summaries.</p>
         </div>
-        <button className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors">
-          <FileText className="w-5 h-5" />
-          <span>Export CSV</span>
-        </button>
+        
+        {zError && <div className="bg-red-100 text-red-700 p-2 rounded w-full my-2">Z-Error: {zError.message}</div>}
+        {lError && <div className="bg-red-100 text-red-700 p-2 rounded w-full my-2">L-Error: {lError.message}</div>}
+
+        <div className="flex space-x-3">
+          <CashManagementModal />
+          <button className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg shadow-sm flex items-center space-x-2 font-medium transition-colors">
+            <FileText className="w-5 h-5" />
+            <span>Export CSV</span>
+          </button>
+        </div>
       </div>
 
       {/* P&L Overview */}
@@ -69,40 +116,135 @@ export default async function AccountingPage() {
 
       {/* Z-Reports */}
       <div className="pt-4">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-          <Receipt className="w-5 h-5 mr-2 text-gray-400" />
-          Recent Shift Z-Reports
-        </h2>
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-4 space-y-4 xl:space-y-0">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center">
+            <Receipt className="w-5 h-5 mr-2 text-gray-400" />
+            Z-Reports & Cash Flow
+          </h2>
+          <div className="flex space-x-2 bg-gray-100 p-1 rounded-xl items-center overflow-x-auto w-full xl:w-auto pb-2 xl:pb-1">
+            <div className="flex-shrink-0"><DatePickerFilter currentDate={specificDate} /></div>
+            <div className="w-px h-6 bg-gray-300 mx-1 hidden sm:block flex-shrink-0"></div>
+            <a href="/accounting?period=daily" className={`flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${period === 'daily' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Daily</a>
+            <a href="/accounting?period=weekly" className={`flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${period === 'weekly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Weekly</a>
+            <a href="/accounting?period=monthly" className={`flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${period === 'monthly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Monthly</a>
+            <a href="/accounting?period=yearly" className={`flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${period === 'yearly' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Yearly</a>
+            <a href="/accounting?period=all" className={`flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${period === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>All Time</a>
+          </div>
+        </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[800px]">
+            <table className="w-full text-left border-collapse min-w-[1200px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm uppercase tracking-wider">
-                  <th className="p-4 font-semibold">Shift Opened</th>
-                  <th className="p-4 font-semibold">Shift Closed</th>
+                  <th className="p-4 font-semibold">Status</th>
+                  <th className="p-4 font-semibold">Shift Time</th>
                   <th className="p-4 font-semibold">Staff</th>
-                  <th className="p-4 font-semibold text-right">Starting Cash</th>
-                  <th className="p-4 font-semibold text-right">Cash Received</th>
+                  <th className="p-4 font-semibold text-right">Opening</th>
+                  <th className="p-4 font-semibold text-right">Cash In</th>
+                  <th className="p-4 font-semibold text-right">Expenses Out</th>
+                  <th className="p-4 font-semibold text-right">Expected</th>
+                  <th className="p-4 font-semibold text-right">Actual</th>
+                  <th className="p-4 font-semibold text-right">Variance</th>
                   <th className="p-4 font-semibold text-right">Total Sales</th>
-                  <th className="p-4 font-semibold text-right">Orders</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 text-gray-700">
-                {zReports?.map((report) => (
-                  <tr key={report.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-4 text-sm text-gray-500">{new Date(report.opened_at).toLocaleString()}</td>
-                    <td className="p-4 text-sm text-gray-500">{report.closed_at ? new Date(report.closed_at).toLocaleString() : 'Active'}</td>
-                    <td className="p-4 text-sm text-gray-900">{report.profiles?.first_name || 'Unknown'}</td>
-                    <td className="p-4 text-sm text-right">{currencySymbol} {Number(report.starting_cash).toFixed(2)}</td>
-                    <td className="p-4 text-sm text-right text-green-600 font-medium">{currencySymbol} {Number(report.total_cash_received).toFixed(2)}</td>
-                    <td className="p-4 text-sm text-right font-bold text-gray-900">{currencySymbol} {Number(report.total_sales).toFixed(2)}</td>
-                    <td className="p-4 text-sm text-right">{report.total_orders}</td>
+                {zReports?.map((report) => {
+                  const isActive = !report.closed_at
+                  
+                  return (
+                  <tr key={report.shift_id} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        isActive ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {isActive ? 'Active' : 'Closed'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-sm text-gray-500">
+                      <div>{new Date(report.opened_at).toLocaleString()}</div>
+                      <div className="text-xs mt-1">{report.closed_at ? new Date(report.closed_at).toLocaleString() : '---'}</div>
+                    </td>
+                    <td className="p-4 text-sm text-gray-500">{profileMap[report.cashier_id] || 'Unknown'}</td>
+                    <td className="p-4 text-sm text-right text-gray-500">{currencySymbol} {Number(report.starting_cash).toFixed(2)}</td>
+                    <td className="p-4 text-sm text-right text-green-600 font-medium">+{currencySymbol} {Number(report.total_cash_received).toFixed(2)}</td>
+                    <td className="p-4 text-sm text-right text-red-600 font-medium">-{currencySymbol} {Number(report.total_expenses).toFixed(2)}</td>
+                    <td className="p-4 text-sm text-right font-medium text-gray-900">
+                      {currencySymbol} {isActive ? Number(report.expected_cash_live || 0).toFixed(2) : Number(report.expected_cash || 0).toFixed(2)}
+                    </td>
+                    <td className="p-4 text-sm text-right text-gray-900">
+                      {isActive ? '---' : `${currencySymbol} ${Number(report.actual_cash || 0).toFixed(2)}`}
+                    </td>
+                    <td className={`p-4 text-sm text-right font-medium ${
+                      Number(report.variance) < 0 ? 'text-red-600' : Number(report.variance) > 0 ? 'text-green-600' : 'text-gray-500'
+                    }`}>
+                      {isActive ? '---' : `${Number(report.variance) > 0 ? '+' : ''}${Number(report.variance || 0).toFixed(2)}`}
+                    </td>
+                    <td className="p-4 text-sm text-right font-bold text-gray-900">
+                      <div>{currencySymbol} {Number(report.total_sales).toFixed(2)}</div>
+                      <div className="text-xs text-gray-500 font-normal mt-1">{report.total_orders} orders</div>
+                    </td>
                   </tr>
-                ))}
+                )})}
                 {(!zReports || zReports.length === 0) && (
                   <tr>
+                    <td colSpan={10} className="p-8 text-center text-gray-500">
+                      No shift records found for this period.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Accounting Ledger */}
+      <div className="pt-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-4 sm:space-y-0">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center">
+            <FileText className="w-5 h-5 mr-2 text-gray-400" />
+            Accounting Ledger
+          </h2>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm uppercase tracking-wider">
+                  <th className="p-4 font-semibold">Date & Time</th>
+                  <th className="p-4 font-semibold">Type</th>
+                  <th className="p-4 font-semibold">Description</th>
+                  <th className="p-4 font-semibold">Method</th>
+                  <th className="p-4 font-semibold">Staff</th>
+                  <th className="p-4 font-semibold text-right text-green-600">Debit (In)</th>
+                  <th className="p-4 font-semibold text-right text-red-600">Credit (Out)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 text-gray-700">
+                {ledgerEntries?.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="p-4 text-sm text-gray-500">{new Date(entry.created_at).toLocaleString()}</td>
+                    <td className="p-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {entry.transaction_type}
+                      </span>
+                    </td>
+                    <td className="p-4 text-sm text-gray-900 font-medium">{entry.description}</td>
+                    <td className="p-4 text-sm text-gray-500 capitalize">{entry.payment_method.toLowerCase()}</td>
+                    <td className="p-4 text-sm text-gray-900 font-medium">{profileMap[entry.cashier_id] || 'System'}</td>
+                    <td className="p-4 text-sm text-right font-medium text-green-600">
+                      {Number(entry.debit) > 0 ? `${currencySymbol} ${Number(entry.debit).toFixed(2)}` : '---'}
+                    </td>
+                    <td className="p-4 text-sm text-right font-medium text-red-600">
+                      {Number(entry.credit) > 0 ? `${currencySymbol} ${Number(entry.credit).toFixed(2)}` : '---'}
+                    </td>
+                  </tr>
+                ))}
+                {(!ledgerEntries || ledgerEntries.length === 0) && (
+                  <tr>
                     <td colSpan={7} className="p-8 text-center text-gray-500">
-                      No shift records found. Open a shift in the POS to generate a Z-Report.
+                      No ledger entries found for this period.
                     </td>
                   </tr>
                 )}

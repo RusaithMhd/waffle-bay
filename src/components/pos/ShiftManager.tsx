@@ -24,8 +24,8 @@ export function ShiftBlocker() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl flex flex-col items-center">
         <div className="w-16 h-16 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mb-6">
           <Lock className="w-8 h-8" />
         </div>
@@ -57,15 +57,19 @@ export function ShiftBlocker() {
 }
 
 export function CloseShiftButton({ className }: { className?: string }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [actualCash, setActualCash] = useState('')
+  const [reason, setReason] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const router = useRouter()
 
   const handleCloseShift = async () => {
-    if (!confirm('Are you sure you want to close the shift? This will finalize all cash totals and generate a Z-Report.')) return
+    if (!actualCash) return alert('Please enter the actual physical cash count.')
 
     setIsProcessing(true)
-    const res = await closeShift()
+    const res = await closeShift(Number(actualCash), reason)
     if (res.success) {
+      setIsOpen(false)
       router.refresh()
     } else {
       alert(res.error || 'Failed to close shift')
@@ -74,13 +78,62 @@ export function CloseShiftButton({ className }: { className?: string }) {
   }
 
   return (
-    <button 
-      onClick={handleCloseShift}
-      disabled={isProcessing}
-      className={className || "flex items-center space-x-2 bg-red-100 text-red-700 px-4 py-2 rounded-xl font-bold hover:bg-red-200 transition-colors disabled:opacity-50"}
-    >
-      <LogOut className="w-5 h-5" />
-      <span>{isProcessing ? 'Closing...' : 'Close Shift'}</span>
-    </button>
+    <>
+      <button 
+        onClick={() => setIsOpen(true)}
+        className={className || "flex items-center space-x-2 bg-red-100 text-red-700 px-4 py-2 rounded-xl font-bold hover:bg-red-200 transition-colors"}
+      >
+        <LogOut className="w-5 h-5" />
+        <span>Close Shift</span>
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col items-center relative">
+            <h2 className="text-2xl font-black text-gray-900 mb-2">Close Shift</h2>
+            <p className="text-gray-500 text-center mb-6">Count the physical cash in the drawer to generate your Z-Report.</p>
+            
+            <div className="w-full mb-4">
+              <label className="block text-sm font-bold text-gray-700 mb-2">Actual Cash Count (Rs.)</label>
+              <input 
+                type="number"
+                value={actualCash}
+                onChange={e => setActualCash(e.target.value)}
+                placeholder="e.g. 15000"
+                className="w-full text-center text-3xl font-black text-gray-900 p-4 border-2 border-gray-200 rounded-2xl focus:border-red-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="w-full mb-6">
+              <label className="block text-sm font-bold text-gray-700 mb-2">Variance Reason (Optional)</label>
+              <input 
+                type="text"
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                placeholder="e.g. Counting error, Petty cash..."
+                className="w-full text-gray-900 p-3 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex w-full space-x-4">
+              <button 
+                onClick={() => setIsOpen(false)}
+                disabled={isProcessing}
+                className="flex-1 bg-gray-100 text-gray-700 font-bold py-4 rounded-2xl hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleCloseShift}
+                disabled={isProcessing || !actualCash}
+                className="flex-1 bg-red-600 text-white font-bold py-4 rounded-2xl hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {isProcessing ? 'Processing...' : 'Confirm Closing'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
