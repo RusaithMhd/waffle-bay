@@ -5,6 +5,7 @@ import { createProduct, updateProduct } from '@/app/actions/products'
 import { X, Upload, Image as ImageIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSettings } from '@/components/SettingsProvider'
+import Image from 'next/image'
 
 export interface Category {
   id: string
@@ -90,7 +91,7 @@ export function AddProductModal({ onClose, categories }: AddModalProps) {
             >
               {imagePreview ? (
                 <div className="relative w-full h-40">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-xl" />
+                  <Image src={imagePreview} alt="Preview" fill unoptimized={imagePreview.startsWith('blob:')} className="object-cover rounded-xl" />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-xl">
                     <span className="text-white font-medium flex items-center"><Upload className="w-4 h-4 mr-2" /> Change Image</span>
                   </div>
@@ -249,7 +250,7 @@ export function EditProductModal({ onClose, categories, item }: EditModalProps) 
             >
               {imagePreview ? (
                 <div className="relative w-full h-40">
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover rounded-xl" />
+                  <Image src={imagePreview} alt="Preview" fill unoptimized={imagePreview.startsWith('blob:')} className="object-cover rounded-xl" />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity rounded-xl">
                     <span className="text-white font-medium flex items-center"><Upload className="w-4 h-4 mr-2" /> Change Image</span>
                   </div>

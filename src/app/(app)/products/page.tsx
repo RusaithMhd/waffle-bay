@@ -5,6 +5,7 @@ import { CheckCircle2, XCircle } from 'lucide-react'
 import { getCurrentUserWithRole } from '@/lib/auth'
 import { hasPermission }          from '@/lib/rbac'
 import { AccessDenied }           from '@/components/AccessDenied'
+import Image                      from 'next/image'
 
 export default async function ProductsPage({
   searchParams,
@@ -78,7 +79,7 @@ export default async function ProductsPage({
                 {/* Product Name & Image (Always visible) */}
                 <div className="md:col-span-5 font-medium text-gray-900 flex items-center space-x-4 mb-3 md:mb-0">
                   {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-14 h-14 rounded-lg object-cover border border-gray-200 shrink-0 shadow-sm" />
+                    <Image src={item.image_url} alt={item.name} width={56} height={56} className="w-14 h-14 rounded-lg object-cover border border-gray-200 shrink-0 shadow-sm" />
                   ) : (
                     <div className="w-14 h-14 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center shrink-0 shadow-sm">
                       <span className="text-gray-400 text-[10px] uppercase font-bold tracking-wider">No Img</span>
