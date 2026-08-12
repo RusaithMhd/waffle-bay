@@ -7,6 +7,8 @@ export interface CartItem {
   quantity: number
   modifiers: Modifier[]
   itemTotal: number // (product.price + sum(modifier.prices)) * quantity
+  note?: string
+  customPrice?: number
 }
 
 interface PosState {
@@ -19,6 +21,7 @@ interface PosState {
   setActiveCategory: (id: string | null) => void
   addToCart: (product: Product, modifiers: Modifier[], quantity: number) => void
   updateQuantity: (itemId: string, delta: number) => void
+  updateCartItemDetails: (itemId: string, note?: string, customPrice?: number) => void
   removeFromCart: (itemId: string) => void
   clearCart: () => void
   setDiscount: (percent: number) => void
@@ -31,8 +34,8 @@ interface PosState {
   getTotal: () => number
 }
 
-const calculateItemTotal = (product: Product, modifiers: Modifier[], quantity: number) => {
-  const basePrice = Number(product.base_price)
+const calculateItemTotal = (product: Product, modifiers: Modifier[], quantity: number, customPrice?: number) => {
+  const basePrice = customPrice !== undefined ? Number(customPrice) : Number(product.base_price)
   const modsPrice = modifiers.reduce((sum, mod) => sum + Number(mod.price), 0)
   return (basePrice + modsPrice) * quantity
 }
@@ -66,7 +69,7 @@ export const usePosStore = create<PosState>((set, get) => ({
         newCart[existingItemIndex] = {
           ...existingItem,
           quantity: newQuantity,
-          itemTotal: calculateItemTotal(product, modifiers, newQuantity)
+          itemTotal: calculateItemTotal(product, modifiers, newQuantity, existingItem.customPrice)
         }
         return { cart: newCart }
       }
@@ -90,7 +93,29 @@ export const usePosStore = create<PosState>((set, get) => ({
           return {
             ...item,
             quantity: newQuantity,
-            itemTotal: calculateItemTotal(item.product, item.modifiers, newQuantity)
+            itemTotal: calculateItemTotal(item.product, item.modifiers, newQuantity, item.customPrice)
+          }
+        }
+        return item
+      })
+      return { cart: newCart }
+    })
+  },
+
+  updateCartItemDetails: (itemId, note, customPrice) => {
+    set((state) => {
+      const newCart = state.cart.map(item => {
+        if (item.id === itemId) {
+          return {
+            ...item,
+            note: note !== undefined ? note : item.note,
+            customPrice: customPrice !== undefined ? customPrice : item.customPrice,
+            itemTotal: calculateItemTotal(
+              item.product, 
+              item.modifiers, 
+              item.quantity, 
+              customPrice !== undefined ? customPrice : item.customPrice
+            )
           }
         }
         return item

@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { Product, Category, ModifierGroup, Modifier } from '@/types'
-import { usePosStore } from '@/stores/usePosStore'
-import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon, LogOut } from 'lucide-react'
+import { usePosStore, CartItem } from '@/stores/usePosStore'
+import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon, LogOut, Edit2 } from 'lucide-react'
 import { PaymentModal } from './PaymentModal'
 import { useEffect } from 'react'
 import { SyncService } from '@/services/sync'
@@ -15,6 +15,99 @@ import { useSettings } from '@/components/SettingsProvider'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
+
+const CartItemRow = ({
+  item,
+  settings,
+  updateQuantity,
+  removeFromCart,
+  updateCartItemDetails,
+  isMobile
+}: {
+  item: CartItem
+  settings: any
+  updateQuantity: (id: string, delta: number) => void
+  removeFromCart: (id: string) => void
+  updateCartItemDetails: (id: string, note?: string, price?: number) => void
+  isMobile: boolean
+}) => {
+  const [isEditing, setIsEditing] = useState(false)
+  const [note, setNote] = useState(item.note || '')
+  const [price, setPrice] = useState(item.customPrice !== undefined ? String(item.customPrice) : String(item.product.base_price))
+
+  const handleSave = () => {
+    updateCartItemDetails(item.id, note, Number(price))
+    setIsEditing(false)
+  }
+
+  return (
+    <li className="bg-white border border-[#E5E7EB] rounded-xl p-3 flex flex-col shadow-sm group relative">
+      <button onClick={() => removeFromCart(item.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 hidden lg:block hover:bg-red-200">
+        <X className="w-4 h-4" />
+      </button>
+      <div className="flex justify-between items-start mb-2 pr-4">
+        <div>
+          <h4 className="font-semibold text-[#111827] text-[14px]">{item.product.name}</h4>
+          {item.note && <p className="text-[12px] text-[#FF6500] font-medium mt-0.5">Note: {item.note}</p>}
+          {item.modifiers.length > 0 && (
+            <div className="mt-0.5 space-y-0.5">
+              {item.modifiers.map(mod => (
+                <p key={mod.id} className="text-[12px] text-[#6B7280]">
+                  + {mod.name} <span className="ml-0.5">(+{settings.currency_symbol}{Number(mod.price).toFixed(2)})</span>
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="text-right shrink-0">
+          <p className="font-bold text-[#111827] text-[14px]">{settings.currency_symbol} {item.itemTotal.toFixed(2)}</p>
+        </div>
+      </div>
+      
+      {isEditing ? (
+        <div className="mt-2 p-3 bg-[#F8FAFC] rounded-lg border border-[#E5E7EB] space-y-3">
+          <div>
+            <label className="block text-[12px] font-bold text-[#111827] mb-1">Special Note (KOT)</label>
+            <input 
+              type="text" 
+              value={note} 
+              onChange={e => setNote(e.target.value)} 
+              className="w-full px-2.5 py-1.5 text-[13px] border border-[#E5E7EB] text-[#111827] rounded-md focus:ring-1 focus:ring-[#FF6500] focus:border-[#FF6500] outline-none" 
+              placeholder="e.g. Less sugar, extra crispy..." 
+            />
+          </div>
+          <div>
+            <label className="block text-[12px] font-bold text-[#111827] mb-1">Unit Price ({settings.currency_symbol})</label>
+            <input 
+              type="number" 
+              step="0.01" 
+              value={price} 
+              onChange={e => setPrice(e.target.value)} 
+              className="w-full px-2.5 py-1.5 text-[13px] border border-[#E5E7EB] text-[#111827] rounded-md focus:ring-1 focus:ring-[#FF6500] focus:border-[#FF6500] outline-none" 
+            />
+          </div>
+          <button onClick={handleSave} className="w-full py-1.5 bg-[#111827] text-white text-[13px] font-bold rounded-md hover:bg-gray-800 transition-colors">Save Details</button>
+        </div>
+      ) : (
+        <div className="flex justify-between items-center pt-2 border-t border-gray-50 mt-1">
+          <div className="flex items-center space-x-1 bg-[#F8FAFC] rounded-lg p-0.5 border border-[#E5E7EB]">
+            <button onClick={() => updateQuantity(item.id, -1)} className="p-1 text-[#6B7280] hover:text-[#111827] hover:bg-white rounded transition-colors"><Minus className="w-4 h-4" /></button>
+            <span className="font-bold text-[14px] w-8 text-center text-[#111827]">{item.quantity}</span>
+            <button onClick={() => updateQuantity(item.id, 1)} className="p-1 text-[#6B7280] hover:text-[#111827] hover:bg-white rounded transition-colors"><Plus className="w-4 h-4" /></button>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button onClick={() => setIsEditing(true)} className="text-[#6B7280] hover:text-[#111827] text-[13px] font-medium px-2 py-1 rounded transition-colors flex items-center bg-gray-50 hover:bg-gray-100">
+              <Edit2 className="w-3.5 h-3.5 mr-1.5" /> Edit
+            </button>
+            {isMobile && (
+              <button onClick={() => removeFromCart(item.id)} className="text-red-500 text-[13px] font-medium px-2 py-1 hover:bg-red-50 rounded transition-colors lg:hidden">Remove</button>
+            )}
+          </div>
+        </div>
+      )}
+    </li>
+  )
+}
 
 export function PosApp({
   categories,
@@ -37,6 +130,7 @@ export function PosApp({
     cart,
     addToCart,
     updateQuantity,
+    updateCartItemDetails,
     removeFromCart,
     clearCart,
     getSubtotal,
@@ -138,38 +232,15 @@ export function PosApp({
         ) : (
           <ul className="space-y-3">
             {cart.map((item) => (
-              <li key={item.id} className="bg-white border border-[#E5E7EB] rounded-xl p-3 flex flex-col shadow-sm group relative">
-                <button onClick={() => removeFromCart(item.id)} className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 hidden lg:block hover:bg-red-200">
-                  <X className="w-4 h-4" />
-                </button>
-                <div className="flex justify-between items-start mb-2 pr-4">
-                  <div>
-                    <h4 className="font-semibold text-[#111827] text-[14px]">{item.product.name}</h4>
-                    {item.modifiers.length > 0 && (
-                      <div className="mt-0.5 space-y-0.5">
-                        {item.modifiers.map(mod => (
-                          <p key={mod.id} className="text-[12px] text-[#6B7280]">
-                            + {mod.name} <span className="ml-0.5">(+{settings.currency_symbol}{Number(mod.price).toFixed(2)})</span>
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-bold text-[#111827] text-[14px]">{settings.currency_symbol} {item.itemTotal.toFixed(2)}</p>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t border-gray-50 mt-1">
-                  <div className="flex items-center space-x-1 bg-[#F8FAFC] rounded-lg p-0.5 border border-[#E5E7EB]">
-                    <button onClick={() => updateQuantity(item.id, -1)} className="p-1 text-[#6B7280] hover:text-[#111827] hover:bg-white rounded transition-colors"><Minus className="w-4 h-4" /></button>
-                    <span className="font-bold text-[14px] w-8 text-center text-[#111827]">{item.quantity}</span>
-                    <button onClick={() => updateQuantity(item.id, 1)} className="p-1 text-[#6B7280] hover:text-[#111827] hover:bg-white rounded transition-colors"><Plus className="w-4 h-4" /></button>
-                  </div>
-                  {isMobile && (
-                    <button onClick={() => removeFromCart(item.id)} className="text-red-500 text-sm font-medium px-2 py-1 hover:bg-red-50 rounded transition-colors lg:hidden">Remove</button>
-                  )}
-                </div>
-              </li>
+              <CartItemRow 
+                key={item.id}
+                item={item}
+                settings={settings}
+                updateQuantity={updateQuantity}
+                removeFromCart={removeFromCart}
+                updateCartItemDetails={updateCartItemDetails}
+                isMobile={isMobile}
+              />
             ))}
           </ul>
         )}

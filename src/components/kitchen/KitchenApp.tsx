@@ -36,7 +36,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
     const selectQuery = `
       id, order_number, fulfillment_status, created_at,
       order_items (
-        id, product_name_snapshot, quantity, fulfillment_status,
+        id, product_name_snapshot, quantity, fulfillment_status, notes,
         order_item_modifiers ( modifier_name_snapshot )
       )
     `
@@ -74,6 +74,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
         product_name_snapshot:    i.product_name_snapshot,
         quantity:                 i.quantity,
         fulfillment_status:       i.fulfillment_status,
+        notes:                    i.notes,
         modifiers:                i.order_item_modifiers || [],
       })),
     }))

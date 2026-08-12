@@ -65,7 +65,7 @@ BEGIN
   FOR v_item IN SELECT * FROM jsonb_array_elements(payload->'items')
   LOOP
     INSERT INTO public.order_items (
-      order_id, product_id, product_name_snapshot, unit_price_snapshot, quantity, subtotal, fulfillment_status
+      order_id, product_id, product_name_snapshot, unit_price_snapshot, quantity, subtotal, fulfillment_status, notes
     ) VALUES (
       v_order_id,
       (v_item->>'product_id')::UUID,
@@ -73,7 +73,8 @@ BEGIN
       (v_item->>'unit_price_snapshot')::NUMERIC,
       (v_item->>'quantity')::INT,
       (v_item->>'subtotal')::NUMERIC,
-      'PENDING'
+      'PENDING',
+      v_item->>'notes'
     )
     RETURNING id INTO v_order_item_id;
 
