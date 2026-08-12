@@ -34,6 +34,7 @@ export type Permission =
   | 'settings'
   | 'shifts'
   | 'reports'
+  | 'sales'
 
 // ── Role → Permissions Map ────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'inventory',
     'shifts',
     'reports',
+    'sales',
   ],
 
   cashier: [
@@ -73,6 +75,7 @@ export const ROUTE_PERMISSIONS: Record<string, Permission> = {
   '/inventory':   'inventory',
   '/accounting':  'accounting',
   '/settings':    'settings',
+  '/sales':       'sales',
 }
 
 // ── Role home pages (redirect after login) ───────────────────────────────────
@@ -110,6 +113,7 @@ export const ALL_NAV_ITEMS: NavItem[] = [
   { name: 'Products',       href: '/products',   icon: 'Coffee',          permission: 'products.view'   },
   { name: 'Toppings',       href: '/toppings',   icon: 'Layers',          permission: 'products.view'   },
   // { name: 'Inventory',      href: '/inventory',  icon: 'Package',         permission: 'inventory'       },
+  { name: 'Sales History',  href: '/sales',      icon: 'Receipt',         permission: 'sales'           },
   { name: 'Accounting',     href: '/accounting', icon: 'Calculator',      permission: 'accounting'      },
   { name: 'Settings',       href: '/settings',   icon: 'Settings',        permission: 'settings'        },
 ]
