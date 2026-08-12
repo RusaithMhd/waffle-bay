@@ -7,10 +7,14 @@ import { AccessDenied }           from '@/components/AccessDenied'
 import { DatePickerFilter }       from './DatePickerFilter'
 import { CashManagementModal }    from './CashManagementModal'
 
-export default async function AccountingPage(props: { searchParams: Promise<{ period?: string, date?: string }> }) {
+export default async function AccountingPage(props: { searchParams: Promise<{ period?: string, date?: string, zPage?: string, lPage?: string }> }) {
   const searchParams = await props.searchParams
   const period = searchParams.period || (searchParams.date ? 'custom' : 'all')
   const specificDate = searchParams.date
+  
+  const zPage = parseInt(searchParams.zPage || '1')
+  const lPage = parseInt(searchParams.lPage || '1')
+  const PAGE_SIZE = 15
 
   const userWithRole = await getCurrentUserWithRole()
   if (!userWithRole) redirect('/login')
@@ -21,8 +25,8 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
 
   const supabase = await createClient()
 
-  let zReportsQuery = supabase.from('z_reports_view').select('*').order('opened_at', { ascending: false }).limit(50)
-  let ledgerQuery = supabase.from('accounting_ledger').select('*').order('created_at', { ascending: false }).limit(100)
+  let zReportsQuery = supabase.from('z_reports_view').select('*', { count: 'exact' }).order('opened_at', { ascending: false })
+  let ledgerQuery = supabase.from('accounting_ledger').select('*', { count: 'exact' }).order('created_at', { ascending: false })
   
   if (period === 'custom' && specificDate) {
     const [year, month, day] = specificDate.split('-').map(Number)
@@ -50,11 +54,20 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
     ledgerQuery = ledgerQuery.gte('created_at', lastYear.toISOString())
   }
 
+  // Apply Pagination Ranges
+  const zFrom = (zPage - 1) * PAGE_SIZE
+  const zTo = zFrom + PAGE_SIZE - 1
+  zReportsQuery = zReportsQuery.range(zFrom, zTo)
+
+  const lFrom = (lPage - 1) * PAGE_SIZE
+  const lTo = lFrom + PAGE_SIZE - 1
+  ledgerQuery = ledgerQuery.range(lFrom, lTo)
+
   const [
     { data: settings },
     { data: plData },
-    { data: zReports, error: zError },
-    { data: ledgerEntries, error: lError },
+    { data: zReports, error: zError, count: zCount },
+    { data: ledgerEntries, error: lError, count: lCount },
     { data: profiles }
   ] = await Promise.all([
     supabase.from('store_settings').select('*').eq('id', 1).single(),
@@ -63,6 +76,10 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
     ledgerQuery,
     supabase.from('profiles').select('id, first_name')
   ])
+  
+  const totalZPages = Math.ceil((zCount || 0) / PAGE_SIZE)
+  const totalLPages = Math.ceil((lCount || 0) / PAGE_SIZE)
+
 
   const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p.first_name]))
 
@@ -251,6 +268,28 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
               </tbody>
             </table>
           </div>
+
+          {totalLPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 bg-gray-50">
+              <div className="text-sm text-gray-500">
+                Showing <span className="font-medium">{lFrom + 1}</span> to <span className="font-medium">{Math.min(lTo + 1, lCount || 0)}</span> of <span className="font-medium">{lCount}</span> results
+              </div>
+              <div className="flex space-x-2">
+                <a 
+                  href={`/accounting?period=${period}${specificDate ? `&date=${specificDate}` : ''}&zPage=${zPage}&lPage=${Math.max(1, lPage - 1)}`}
+                  className={`px-3 py-1 text-sm rounded-md border border-gray-300 ${lPage <= 1 ? 'opacity-50 pointer-events-none' : 'hover:bg-white bg-gray-100 text-gray-700'}`}
+                >
+                  Previous
+                </a>
+                <a 
+                  href={`/accounting?period=${period}${specificDate ? `&date=${specificDate}` : ''}&zPage=${zPage}&lPage=${Math.min(totalLPages, lPage + 1)}`}
+                  className={`px-3 py-1 text-sm rounded-md border border-gray-300 ${lPage >= totalLPages ? 'opacity-50 pointer-events-none' : 'hover:bg-white bg-gray-100 text-gray-700'}`}
+                >
+                  Next
+                </a>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
