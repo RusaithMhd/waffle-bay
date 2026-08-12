@@ -14,8 +14,7 @@ export function LoginForm({ message }: { message?: string }) {
     
     const formData = new FormData(e.currentTarget)
     
-    // Add artificial delay for smoother UX (instead of instant jarring redirect)
-    await new Promise(resolve => setTimeout(resolve, 800))
+    // Removed artificial delay for faster login
     
     await login(formData)
     
