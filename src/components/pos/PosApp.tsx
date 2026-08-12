@@ -3,15 +3,16 @@
 import { useState } from 'react'
 import { Product, Category, ModifierGroup, Modifier } from '@/types'
 import { usePosStore } from '@/stores/usePosStore'
-import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon, LogOut } from 'lucide-react'
 import { PaymentModal } from './PaymentModal'
 import { useEffect } from 'react'
 import { SyncService } from '@/services/sync'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import { Receipt, ReceiptData } from './Receipt'
-import { ShiftBlocker, CloseShiftButton } from './ShiftManager'
+import { ShiftBlocker, CloseShiftButton, CloseShiftModal } from './ShiftManager'
 import { useSettings } from '@/components/SettingsProvider'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -53,6 +54,13 @@ export function PosApp({
   const [showPayment, setShowPayment] = useState(false)
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [isCloseShiftModalOpen, setIsCloseShiftModalOpen] = useState(false)
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
 
   // Sync menu locally on load
   useEffect(() => {
@@ -203,6 +211,7 @@ export function PosApp({
   return (
     <div className="flex h-full bg-[#F8FAFC] text-[#111827] overflow-hidden font-sans">
       {!hasActiveShift && <ShiftBlocker />}
+      <CloseShiftModal isOpen={isCloseShiftModalOpen} onClose={() => setIsCloseShiftModalOpen(false)} />
       
       {/* LEFT SIDE: CATALOG */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -233,24 +242,24 @@ export function PosApp({
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-[#E5E7EB] z-50 overflow-hidden py-1">
-                  <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Current Shift</button>
-                  <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Cash Drawer</button>
                   {hasActiveShift && (
-                    <div onClick={() => setShowMoreMenu(false)}>
-                      <CloseShiftButton className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center" />
-                    </div>
+                    <button 
+                      onClick={() => { setShowMoreMenu(false); setIsCloseShiftModalOpen(true); }}
+                      className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Close Shift
+                    </button>
                   )}
                   <div className="h-px bg-[#E5E7EB] my-1" />
                   <Link href="/kitchen" className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors block">Kitchen Display (KOT)</Link>
-                  {userRole !== 'cashier' && (
-                    <>
-                      <div className="h-px bg-[#E5E7EB] my-1" />
-                      <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Reports</button>
-                      <button className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors">Settings</button>
-                    </>
-                  )}
                   <div className="h-px bg-[#E5E7EB] my-1" />
-                  <Link href="/login" className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors block">Logout</Link>
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors flex items-center"
+                  >
+                    Logout
+                  </button>
                 </div>
               </>
             )}
