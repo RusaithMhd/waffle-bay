@@ -94,7 +94,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
             name: i.product.name,
             quantity: i.quantity,
             price: i.customPrice !== undefined ? i.customPrice : i.product.base_price,
-            note: i.note,
+            notes: i.note,
             modifiers: i.modifiers.map(m => ({ name: m.name, price: m.price }))
           })),
           payments: payload.payments,
@@ -125,6 +125,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
           name: i.product.name,
           quantity: i.quantity,
           price: i.product.base_price,
+          notes: i.note,
           modifiers: i.modifiers.map(m => ({ name: m.name, price: m.price }))
         })),
         payments: payload.payments,

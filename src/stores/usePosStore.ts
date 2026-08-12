@@ -19,7 +19,7 @@ interface PosState {
 
   // Actions
   setActiveCategory: (id: string | null) => void
-  addToCart: (product: Product, modifiers: Modifier[], quantity: number) => void
+  addToCart: (product: Product, modifiers: Modifier[], quantity: number, note?: string) => void
   updateQuantity: (itemId: string, delta: number) => void
   updateCartItemDetails: (itemId: string, note?: string, customPrice?: number) => void
   removeFromCart: (itemId: string) => void
@@ -55,10 +55,17 @@ export const usePosStore = create<PosState>((set, get) => ({
 
   setActiveCategory: (id) => set({ activeCategoryId: id }),
 
-  addToCart: (product, modifiers, quantity) => {
+  addToCart: (product, modifiers, quantity, note) => {
     set((state) => {
+      // Create a unique hash for the product + modifiers combo to group same items
+      const modsHash = modifiers.map(m => m.id).sort().join(',')
+      const itemHash = `${product.id}-${modsHash}-${note || ''}`
+      
       const existingItemIndex = state.cart.findIndex(
-        (item) => item.product.id === product.id && areModifiersEqual(item.modifiers, modifiers)
+        i => {
+          const iHash = `${i.product.id}-${i.modifiers.map(m => m.id).sort().join(',')}-${i.note || ''}`
+          return iHash === itemHash && i.customPrice === undefined
+        }
       )
 
       if (existingItemIndex !== -1) {
@@ -79,7 +86,8 @@ export const usePosStore = create<PosState>((set, get) => ({
         product,
         modifiers,
         quantity,
-        itemTotal: calculateItemTotal(product, modifiers, quantity)
+        itemTotal: calculateItemTotal(product, modifiers, quantity),
+        note
       }
       return { cart: [...state.cart, newItem] }
     })

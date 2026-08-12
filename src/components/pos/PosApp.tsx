@@ -141,6 +141,7 @@ export function PosApp({
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedModifiers, setSelectedModifiers] = useState<Modifier[]>([])
+  const [selectedNote, setSelectedNote] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   
   // Modals / Toggles
@@ -198,6 +199,7 @@ export function PosApp({
       }
       setSelectedProduct({ ...product, modifier_groups: mergedGroups })
       setSelectedModifiers([])
+      setSelectedNote('')
     } else {
       addToCart(product, [], 1)
     }
@@ -205,9 +207,10 @@ export function PosApp({
 
   const handleAddWithModifiers = () => {
     if (selectedProduct) {
-      addToCart(selectedProduct, selectedModifiers, 1)
+      addToCart(selectedProduct, selectedModifiers, 1, selectedNote)
       setSelectedProduct(null)
       setSelectedModifiers([])
+      setSelectedNote('')
     }
   }
 
@@ -533,10 +536,21 @@ export function PosApp({
                 </div>
               ))}
             </div>
+            {/* Special Note Input */}
+            <div className="p-5 border-t border-[#E5E7EB] bg-gray-50 shrink-0">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Special Requirements / Notes</label>
+              <textarea
+                value={selectedNote}
+                onChange={(e) => setSelectedNote(e.target.value)}
+                placeholder="E.g. No sugar, extra crispy, allergy info..."
+                className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-[#FF6500] focus:border-[#FF6500] focus:outline-none transition-shadow"
+                rows={2}
+              />
+            </div>
             
             <div className="p-5 border-t border-[#E5E7EB] bg-white shrink-0 flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => setSelectedProduct(null)}
+                onClick={() => { setSelectedProduct(null); setSelectedNote(''); }}
                 className="w-full sm:w-1/4 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 font-bold py-3.5 rounded-xl shadow-sm transition-all flex justify-center items-center active:scale-[0.98]"
               >
                 Cancel

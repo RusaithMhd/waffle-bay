@@ -5,7 +5,7 @@ import Link              from 'next/link'
 import { usePathname }   from 'next/navigation'
 import {
   LayoutDashboard, ChefHat, Package, Calculator,
-  LogOut, Store, Coffee, Settings, Menu, X, Layers
+  LogOut, Store, Coffee, Settings, Menu, X, Layers, Receipt
 } from 'lucide-react'
 import { createClient }  from '@/lib/supabase/client'
 import { useRouter }     from 'next/navigation'
@@ -16,7 +16,7 @@ import { logout }        from '@/app/login/actions'
 
 // Map icon names from rbac.ts to actual Lucide components
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard, Store, ChefHat, Coffee, Package, Calculator, Settings, Layers,
+  LayoutDashboard, Store, ChefHat, Coffee, Package, Calculator, Settings, Layers, Receipt
 }
 
 interface AppShellProps {
