@@ -13,6 +13,7 @@ import { Receipt, ReceiptData } from './Receipt'
 import { ShiftBlocker, CloseShiftButton } from './ShiftManager'
 import { useSettings } from '@/components/SettingsProvider'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export function PosApp({
   categories,
@@ -321,10 +322,12 @@ export function PosApp({
                   {/* Image Area */}
                   <div className="aspect-[4/3] w-full bg-[#F3F4F6] relative overflow-hidden">
                     {product.image_url ? (
-                      <img 
+                      <Image 
                         src={product.image_url} 
                         alt={product.name} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105" 
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-[#9CA3AF] group-hover:bg-[#FFF1DC] group-hover:text-[#FF6500] transition-colors duration-300">
