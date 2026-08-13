@@ -21,55 +21,47 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
   const [filter, setFilter]                     = useState<FilterStatus>('ALL')
   const [connection, setConnection]             = useState<ConnectionStatus>('ONLINE')
   const [updatingIds, setUpdatingIds]           = useState<Set<string>>(new Set())
-  const [newOrderId, setNewOrderId]             = useState<string | null>(null)   // for new-order flash
-  const [now, setNow]                           = useState(Date.now())             // single global timer tick
+  const [newOrderId, setNewOrderId]             = useState<string | null>(null)
+  const [now, setNow]                           = useState(Date.now())
   const [selectedDate, setSelectedDate]         = useState(getBusinessDate(new Date()))
   const [muted, setMuted]                       = useState(false)
+  const [soundUnlocked, setSoundUnlocked]       = useState(false)   // tracks browser unlock
   const prevOrderIdsRef                         = useRef<Set<string>>(new Set())
-  const audioCtxRef                             = useRef<AudioContext | null>(null)
+  const audioRef                                = useRef<HTMLAudioElement | null>(null)
   const mutedRef                                = useRef(false)
 
-  // Keep mutedRef in sync so playKitchenAlert always reads the latest value
+  // Keep mutedRef in sync (avoid stale closure in playKitchenAlert)
   useEffect(() => { mutedRef.current = muted }, [muted])
 
-  // ── Kitchen Alert Sound (Web Audio API — no audio file needed) ──────────────
+  // Keep mutedRef in sync (avoid stale closure in playKitchenAlert)
+  useEffect(() => { mutedRef.current = muted }, [muted])
+
+  // ── Unlock audio on first user interaction ──────────────────────────────────
+  useEffect(() => {
+    const unlock = () => setSoundUnlocked(true)
+    window.addEventListener('click',     unlock, { once: true })
+    window.addEventListener('touchstart', unlock, { once: true })
+    return () => {
+      window.removeEventListener('click',      unlock)
+      window.removeEventListener('touchstart', unlock)
+    }
+  }, [])
+
+  // ── Play the chime ──────────────────────────────────────────────────────────
   const playKitchenAlert = useCallback(() => {
     if (mutedRef.current) return
+    const audio = audioRef.current
+    if (!audio) return
     try {
-      // Re-use or lazily create AudioContext (browsers require user-gesture first;
-      // the kitchen screen is always open by staff so this fires fine on interaction)
-      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-        audioCtxRef.current = new AudioContext()
+      audio.currentTime = 0
+      audio.volume = 0.85
+      const playPromise = audio.play()
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.warn('[Kitchen] Audio play blocked:', err)
+          setSoundUnlocked(false)
+        })
       }
-      const ctx = audioCtxRef.current
-      if (ctx.state === 'suspended') ctx.resume()
-
-      const now = ctx.currentTime
-
-      // Two-tone "ding dong" kitchen chime
-      const tones = [
-        { freq: 880, start: 0,    dur: 0.18 },  // high ding
-        { freq: 660, start: 0.22, dur: 0.22 },  // mid dong
-        { freq: 880, start: 0.48, dur: 0.18 },  // high ding again
-        { freq: 550, start: 0.70, dur: 0.30 },  // low resonance
-      ]
-
-      tones.forEach(({ freq, start, dur }) => {
-        const osc  = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-
-        osc.type = 'sine'
-        osc.frequency.setValueAtTime(freq, now + start)
-
-        gain.gain.setValueAtTime(0, now + start)
-        gain.gain.linearRampToValueAtTime(0.55, now + start + 0.02)  // fast attack
-        gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur) // decay
-
-        osc.start(now + start)
-        osc.stop(now + start + dur + 0.05)
-      })
     } catch (e) {
       console.warn('[Kitchen] Audio alert failed:', e)
     }
@@ -131,18 +123,22 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
       })),
     }))
 
-    // Detect new orders → flash banner + sound alert
+    // Detect new orders → flash banner + chime sound
     const currentIds = new Set(mapped.map(o => o.id))
-    for (const id of currentIds) {
-      if (prevOrderIdsRef.current.size > 0 && !prevOrderIdsRef.current.has(id)) {
-        // Only play sound if this isn't the very first load (prevOrderIdsRef has data)
-        playKitchenAlert()
-        setNewOrderId(id)
-        setTimeout(() => setNewOrderId(null), 4000)
-        break
-      } else if (prevOrderIdsRef.current.size === 0) {
-        // First load — just track but don't alert
-        break
+    if (prevOrderIdsRef.current.size > 0) {
+      // Not the first load — check for genuinely new order IDs
+      let foundNew = false
+      for (const id of currentIds) {
+        if (!prevOrderIdsRef.current.has(id)) {
+          playKitchenAlert()
+          setNewOrderId(id)
+          setTimeout(() => setNewOrderId(null), 5000)
+          foundNew = true
+          break
+        }
+      }
+      if (!foundNew) {
+        // No new orders this tick — nothing to do
       }
     }
     prevOrderIdsRef.current = currentIds
@@ -165,12 +161,11 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
         fetchOrders()
       })
       .subscribe(status => {
-        if (status === 'SUBSCRIBED')      setConnection('ONLINE')
-        else if (status === 'CLOSED')     setConnection('OFFLINE')
+        if (status === 'SUBSCRIBED')         setConnection('ONLINE')
+        else if (status === 'CLOSED')        setConnection('OFFLINE')
         else if (status === 'CHANNEL_ERROR') setConnection('OFFLINE')
       })
 
-    // Offline detection
     const onOffline = () => setConnection('OFFLINE')
     const onOnline  = () => { setConnection('SYNCING'); fetchOrders().then(() => setConnection('ONLINE')) }
     window.addEventListener('offline', onOffline)
@@ -193,7 +188,6 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
         .eq('id', orderId)
       if (error) throw error
 
-      // Optimistic update
       setOrders(prev =>
         status === 'COMPLETED'
           ? prev.filter(o => o.id !== orderId)
@@ -201,7 +195,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
       )
     } catch (err) {
       console.error('[Kitchen] status update failed:', err)
-      fetchOrders() // re-sync on failure
+      fetchOrders()
     } finally {
       setUpdatingIds(prev => { const s = new Set(prev); s.delete(orderId); return s })
     }
@@ -210,7 +204,6 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
   // ── Item toggle ─────────────────────────────────────────────────────────────
   const handleToggleItem = async (itemId: string, current: ItemStatus) => {
     const next = current === 'PENDING' ? 'DONE' : 'PENDING'
-    // Optimistic update
     setOrders(prev => prev.map(o => ({
       ...o,
       items: o.items.map(i => i.id === itemId ? { ...i, fulfillment_status: next } : i),
@@ -223,7 +216,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
       if (error) throw error
     } catch (err) {
       console.error('[Kitchen] item toggle failed:', err)
-      fetchOrders() // re-sync on failure
+      fetchOrders()
     }
   }
 
@@ -260,16 +253,47 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
         onDateChange={setSelectedDate}
       />
 
+      {/* Sound unlock prompt — shows only if browser blocked autoplay */}
+      {!soundUnlocked && (
+        <div
+          className="mx-4 mt-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-semibold flex items-center gap-2 shrink-0 cursor-pointer hover:bg-amber-100 transition-colors"
+          onClick={() => {
+            const audio = audioRef.current
+            if (!audio) return
+            audio.currentTime = 0
+            audio.volume = 0.85
+            audio.play().then(() => { setSoundUnlocked(true) }).catch(() => {})
+          }}
+        >
+          <Volume2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          Tap here to enable notification sounds for new orders
+        </div>
+      )}
+
       {/* New Order Flash Banner */}
       {newOrderId && (
         <div className="mx-4 mt-3 px-4 py-3 bg-blue-500 rounded-xl text-white font-bold text-[14px] flex items-center space-x-2 shadow-lg animate-pulse shrink-0">
-          <span className="w-2 h-2 rounded-full bg-white" />
+          <span className="w-2 h-2 rounded-full bg-white animate-ping" />
           <span>🔔 NEW ORDER — #{orders.find(o => o.id === newOrderId)?.order_number}</span>
         </div>
       )}
 
-      {/* Mute Toggle */}
-      <div className="flex justify-end px-4 pt-2 shrink-0">
+      {/* Top-right Sound Controls */}
+      <div className="flex justify-end items-center gap-3 px-4 pt-2 shrink-0">
+        <button
+          onClick={() => {
+            const audio = audioRef.current
+            if (audio) {
+              audio.currentTime = 0
+              audio.volume = 0.85
+              audio.play().then(() => setSoundUnlocked(true)).catch(() => {})
+            }
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+        >
+          <Volume2 className="w-3.5 h-3.5" />
+          Test Sound
+        </button>
         <button
           onClick={() => setMuted(m => !m)}
           title={muted ? 'Unmute notifications' : 'Mute notifications'}
@@ -294,7 +318,6 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
             </div>
           </div>
         ) : visibleOrders.length === 0 ? (
-          /* Empty State */
           <div className="h-full flex flex-col items-center justify-center text-center px-8">
             <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
               <CheckCircle2 className="w-10 h-10 text-emerald-500" />
@@ -309,12 +332,6 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
             </p>
           </div>
         ) : (
-          /* KOT Grid:
-             Mobile:           1 column
-             Tablet portrait:  2 columns (sm: 640px+)
-             Tablet landscape: 3 columns (lg: 1024px+)
-             Desktop wide:     4 columns (xl: 1280px+)
-          */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 items-start">
             {visibleOrders.map(order => (
               <KOTCard
@@ -338,6 +355,9 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
           <span>OFFLINE — Orders may not be up to date. Reconnecting...</span>
         </div>
       )}
+
+      {/* Hidden Audio Element */}
+      <audio ref={audioRef} src="/chime.mp3" preload="auto" />
     </div>
   )
 }
