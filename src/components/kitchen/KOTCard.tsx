@@ -48,10 +48,32 @@ function formatElapsed(secs: number): string {
   return `${m}m ${s < 10 ? '0' : ''}${s}s`
 }
 
-function getUrgencyClass(secs: number): { timer: string; ring: string } {
-  if (secs >= 600) return { timer: 'text-red-600 font-black', ring: 'border-red-400' }
-  if (secs >= 300) return { timer: 'text-amber-600 font-black', ring: 'border-amber-400' }
-  return { timer: 'text-slate-500 font-semibold', ring: 'border-white/60' }
+function getUrgencyClass(secs: number, status: OrderStatus): { timer: string; ring: string; cardBg: string; borderL: string } {
+  if (status === 'COMPLETED') {
+    return { timer: 'text-slate-400', ring: 'border-emerald-200', cardBg: 'bg-gradient-to-br from-emerald-50 to-teal-50/60 opacity-85', borderL: 'border-l-4 border-l-emerald-400' }
+  }
+  
+  // Overdue: > 10 mins
+  if (secs >= 600) {
+    return { timer: 'text-red-600 font-black animate-pulse', ring: 'border-red-300', cardBg: 'bg-gradient-to-br from-red-50 to-red-100', borderL: 'border-l-4 border-l-red-600 shadow-[0_0_15px_rgba(220,38,38,0.2)]' }
+  }
+  // Slow: > 5 mins
+  if (secs >= 300) {
+    return { timer: 'text-orange-600 font-black', ring: 'border-orange-200', cardBg: 'bg-gradient-to-br from-orange-50 to-orange-100', borderL: 'border-l-4 border-l-orange-500' }
+  }
+
+  // Normal states
+  if (status === 'NEW') {
+    return { timer: 'text-blue-500 font-semibold', ring: 'border-blue-200', cardBg: 'bg-gradient-to-br from-blue-50 to-blue-100/80', borderL: 'border-l-4 border-l-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)]' }
+  }
+  if (status === 'PREPARING') {
+    return { timer: 'text-amber-500 font-semibold', ring: 'border-amber-200', cardBg: 'bg-gradient-to-br from-amber-50 to-amber-100/80', borderL: 'border-l-4 border-l-amber-400' }
+  }
+  if (status === 'READY') {
+    return { timer: 'text-emerald-500 font-semibold', ring: 'border-emerald-200', cardBg: 'bg-gradient-to-br from-emerald-50 to-emerald-100/90', borderL: 'border-l-4 border-l-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]' }
+  }
+
+  return { timer: 'text-slate-500 font-semibold', ring: 'border-white/60', cardBg: 'bg-gradient-to-br from-white/80 to-white/50', borderL: 'border-l-4 border-l-slate-200' }
 }
 
 // ── Status helpers ────────────────────────────────────────────────────────────
@@ -80,7 +102,7 @@ const STATUS_CONFIG = {
 export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, readOnly = false }: KOTCardProps) {
   const cfg    = STATUS_CONFIG[order.fulfillment_status]
   const secs   = getElapsedSeconds(order.created_at, now)
-  const urg    = getUrgencyClass(secs)
+  const urg    = getUrgencyClass(secs, order.fulfillment_status)
   const isReady = order.fulfillment_status === 'READY'
 
   const handleAction = () => {
@@ -89,10 +111,10 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, 
   }
 
   return (
-    <div className={`flex flex-col rounded-2xl border border-white/60 overflow-hidden bg-white/70 backdrop-blur-md shadow-sm transition-all ${urg.ring} ${isReady ? 'border-emerald-300' : ''}`}>
+    <div className={`flex flex-col rounded-xl border overflow-hidden backdrop-blur-md transition-all duration-300 ${urg.ring} ${urg.cardBg} ${urg.borderL} ${isReady ? 'scale-[1.02]' : ''}`}>
 
       {/* ── Card Header ── */}
-      <div className={`px-4 py-3 flex items-center justify-between shrink-0 border-b border-white/40 ${isReady ? 'bg-emerald-50/80' : 'bg-white/40'}`}>
+      <div className={`px-4 py-3 flex items-center justify-between shrink-0 border-b border-black/5`}>
         <div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2 flex-wrap">
@@ -116,12 +138,16 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, 
             <span className="text-[11px] text-slate-500 font-semibold">
               {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
-            <span className="text-slate-300">·</span>
-            <span className={`text-[13px] font-bold tabular-nums ${urg.timer}`}>
-              {formatElapsed(secs)}
-            </span>
-            {secs >= 600 && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">OVERDUE</span>}
-            {secs >= 300 && secs < 600 && <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">SLOW</span>}
+            {order.fulfillment_status !== 'COMPLETED' && (
+              <>
+                <span className="text-slate-300">·</span>
+                <span className={`text-[13px] font-bold tabular-nums ${urg.timer}`}>
+                  {formatElapsed(secs)}
+                </span>
+                {secs >= 600 && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">OVERDUE</span>}
+                {secs >= 300 && secs < 600 && <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">SLOW</span>}
+              </>
+            )}
           </div>
         </div>
 
@@ -146,8 +172,8 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, 
             disabled={readOnly}
             className={`w-full text-left px-3 py-3 rounded-xl border transition-all ${!readOnly ? 'active:scale-[0.98]' : 'cursor-default'} ${
               item.fulfillment_status === 'DONE'
-                ? 'bg-slate-50/50 border-slate-200/50 opacity-60'
-                : 'bg-white/80 border-slate-200/60 shadow-sm hover:border-slate-300'
+                ? 'bg-transparent border-black/5 opacity-50'
+                : 'bg-white/50 backdrop-blur-sm border-white/60 shadow-sm hover:bg-white/60'
             }`}
           >
             <div className="flex items-start justify-between gap-2">
