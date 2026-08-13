@@ -29,6 +29,9 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
   const [activeMethod, setActiveMethod] = useState<PaymentMethod>('CASH')
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Idempotency key generated once per modal session
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
 
   const paidAmount = payments.reduce((sum, p) => sum + p.amount, 0)
   const balanceDue = Math.max(0, total - paidAmount)
@@ -57,6 +60,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
       discount: getDiscountAmount(),
       total: total,
       order_type: orderType,
+      idempotency_key: idempotencyKey,
       items: cart.map(item => ({
         product_id: item.product.id,
         product_name_snapshot: item.product.name,
