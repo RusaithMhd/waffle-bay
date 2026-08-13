@@ -12,14 +12,16 @@ interface KitchenHeaderProps {
 }
 
 export function KitchenHeader({ activeOrderCount, connectionStatus, onRefresh }: KitchenHeaderProps) {
-  const [now, setNow] = useState(new Date())
+  const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => {
+    // Set immediately on mount (client only — avoids SSR mismatch)
+    setNow(new Date())
     const interval = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(interval)
   }, [])
 
-  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const timeStr = now ? now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'
 
   const handleSignOut = async () => {
     await logout()
@@ -67,7 +69,7 @@ export function KitchenHeader({ activeOrderCount, connectionStatus, onRefresh }:
         </div>
 
         {/* Time */}
-        <div className="text-[15px] font-bold text-slate-900 tabular-nums bg-white/60 px-3 py-1.5 rounded-lg border border-white/50 shadow-sm">{timeStr}</div>
+        <div suppressHydrationWarning className="text-[15px] font-bold text-slate-900 tabular-nums bg-white/60 px-3 py-1.5 rounded-lg border border-white/50 shadow-sm">{timeStr}</div>
 
         {/* Refresh */}
         <button
