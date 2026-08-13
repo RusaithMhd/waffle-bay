@@ -8,25 +8,28 @@ export interface CheckoutPayload {
   tax: number
   discount: number
   total: number
-  order_type: 'DINE_IN' | 'TAKEAWAY'
-  items: Array<{
+  order_type: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY'
+  idempotency_key: string
+  items: {
     product_id: string
     product_name_snapshot: string
     unit_price_snapshot: number
     quantity: number
     subtotal: number
     notes?: string
-    modifiers: Array<{
+    modifiers: {
       modifier_id: string
       modifier_name_snapshot: string
       modifier_price_snapshot: number
       quantity: number
-    }>
-  }>
-  payments: Array<{
-    method: 'CASH' | 'CARD' | 'QR' | 'BANK_TRANSFER' | 'OTHER'
+    }[]
+  }[]
+  payments: {
+    method: 'CASH' | 'CARD' | 'QR' | 'BANK_TRANSFER'
     amount: number
-  }>
+    amount_tendered?: number
+    change_given?: number
+  }[]
 }
 
 export async function processCheckout(payload: CheckoutPayload) {

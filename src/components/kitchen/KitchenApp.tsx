@@ -28,6 +28,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
   const [soundUnlocked, setSoundUnlocked]       = useState(false)   // tracks browser unlock
   const prevOrderIdsRef                         = useRef<Set<string>>(new Set())
   const audioRef                                = useRef<HTMLAudioElement | null>(null)
+  const completeAudioRef                        = useRef<HTMLAudioElement | null>(null)
   const mutedRef                                = useRef(false)
 
   // Keep mutedRef in sync (avoid stale closure in playKitchenAlert)
@@ -47,7 +48,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
     }
   }, [])
 
-  // ── Play the chime ──────────────────────────────────────────────────────────
+  // ── Play the chime (New Order) ──────────────────────────────────────────────
   const playKitchenAlert = useCallback(() => {
     if (mutedRef.current) return
     const audio = audioRef.current
@@ -64,6 +65,26 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
       }
     } catch (e) {
       console.warn('[Kitchen] Audio alert failed:', e)
+    }
+  }, [])
+
+  // ── Play the chime (Order Complete) ─────────────────────────────────────────
+  const playCompleteAlert = useCallback(() => {
+    if (mutedRef.current) return
+    const audio = completeAudioRef.current
+    if (!audio) return
+    try {
+      audio.currentTime = 0
+      audio.volume = 0.85
+      const playPromise = audio.play()
+      if (playPromise !== undefined) {
+        playPromise.catch(err => {
+          console.warn('[Kitchen] Complete Audio play blocked:', err)
+          setSoundUnlocked(false)
+        })
+      }
+    } catch (e) {
+      console.warn('[Kitchen] Complete Audio alert failed:', e)
     }
   }, [])
 
@@ -153,12 +174,25 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
 
     const channel = supabase
       .channel('kitchen-room-v2')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+        setOrders(prev => prev.map(o => 
+          o.id === payload.new.id 
+            ? { ...o, fulfillment_status: payload.new.fulfillment_status } 
+            : o
+        ))
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
         setConnection('SYNCING')
         fetchOrders().then(() => setConnection('ONLINE'))
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, () => {
-        fetchOrders()
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'order_items' }, (payload) => {
+        setOrders(prev => prev.map(o => {
+          if (o.id !== payload.new.order_id) return o
+          return {
+            ...o,
+            items: o.items.map(i => i.id === payload.new.id ? { ...i, fulfillment_status: payload.new.fulfillment_status } : i)
+          }
+        }))
       })
       .subscribe(status => {
         if (status === 'SUBSCRIBED')         setConnection('ONLINE')
@@ -181,6 +215,12 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
   // ── Status update ───────────────────────────────────────────────────────────
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     setUpdatingIds(prev => new Set(prev).add(orderId))
+    
+    // Play complete sound locally if marking as completed
+    if (status === 'COMPLETED') {
+      playCompleteAlert()
+    }
+
     try {
       const { error } = await supabase
         .from('orders')
@@ -259,10 +299,19 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
           className="mx-4 mt-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs font-semibold flex items-center gap-2 shrink-0 cursor-pointer hover:bg-amber-100 transition-colors"
           onClick={() => {
             const audio = audioRef.current
-            if (!audio) return
-            audio.currentTime = 0
-            audio.volume = 0.85
-            audio.play().then(() => { setSoundUnlocked(true) }).catch(() => {})
+            const audio2 = completeAudioRef.current
+            if (audio) {
+              audio.currentTime = 0
+              audio.volume = 0.85
+              audio.play().then(() => setSoundUnlocked(true)).catch(() => {})
+            }
+            if (audio2) {
+              audio2.currentTime = 0
+              audio2.volume = 0.85
+              // We just unlock it, we don't need to actually play the whole sound for the second one,
+              // but playing and pausing ensures it's unlocked.
+              audio2.play().then(() => { audio2.pause(); audio2.currentTime = 0; }).catch(() => {})
+            }
           }}
         >
           <Volume2 className="w-3.5 h-3.5 text-amber-600 shrink-0" />
@@ -280,20 +329,6 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
 
       {/* Top-right Sound Controls */}
       <div className="flex justify-end items-center gap-3 px-4 pt-2 shrink-0">
-        <button
-          onClick={() => {
-            const audio = audioRef.current
-            if (audio) {
-              audio.currentTime = 0
-              audio.volume = 0.85
-              audio.play().then(() => setSoundUnlocked(true)).catch(() => {})
-            }
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
-        >
-          <Volume2 className="w-3.5 h-3.5" />
-          Test Sound
-        </button>
         <button
           onClick={() => setMuted(m => !m)}
           title={muted ? 'Unmute notifications' : 'Mute notifications'}
@@ -356,8 +391,9 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
         </div>
       )}
 
-      {/* Hidden Audio Element */}
+      {/* Hidden Audio Elements */}
       <audio ref={audioRef} src="/chime.mp3" preload="auto" />
+      <audio ref={completeAudioRef} src="/Complete.mp3" preload="auto" />
     </div>
   )
 }
