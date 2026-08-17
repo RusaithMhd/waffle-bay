@@ -1,13 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { Store, Users, Layers } from 'lucide-react'
+import { Store, Users, Layers, Printer } from 'lucide-react'
 
 export function SettingsTabs({ activeTab }: { activeTab: string }) {
   const tabs = [
     { id: 'store', name: 'Store Config', icon: Store },
     { id: 'categories', name: 'Menu Categories', icon: Layers },
     { id: 'staff', name: 'Staff & Roles', icon: Users },
+    { id: 'printer', name: 'Printer Settings', icon: Printer },
   ]
 
   return (
