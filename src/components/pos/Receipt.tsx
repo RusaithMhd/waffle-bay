@@ -1,8 +1,12 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { Printer } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Printer, Bluetooth } from 'lucide-react'
 import { useSettings } from '@/components/SettingsProvider'
+import { toast } from 'react-hot-toast'
+import { PrinterConnectionManager } from '@/lib/printer/connection'
+import { buildReceiptBytes } from '@/lib/printer/receipt-builder'
+import { PrinterConfig, PrintJobData, StoreProfile } from '@/lib/printer/types'
 
 export interface ReceiptData {
   order_number: string
@@ -37,6 +41,100 @@ interface ReceiptProps {
 export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
   const printTriggered = useRef(false)
   const settings = useSettings()
+  const [isPrinting, setIsPrinting] = useState(false)
+
+  const handleBluetoothPrint = async () => {
+    if (!data) return;
+    setIsPrinting(true);
+    const toastId = toast.loading('Initiating Bluetooth Print...');
+    try {
+      const manager = PrinterConnectionManager.getInstance();
+      
+      // 1. Connect if not already connected
+      if (manager.getState() !== 'CONNECTED') {
+        toast.loading('Connecting to XP-E200L...', { id: toastId });
+        
+        // Load config from localStorage or fallback to defaults
+        let config: PrinterConfig = {
+          transport: 'spp',
+          bleServiceUuid: '0000fff0-0000-1000-8000-00805f9b34fb',
+          bleWriteCharacteristicUuid: '0000fff1-0000-1000-8000-00805f9b34fb',
+          sppServiceClassId: '00001101-0000-1000-8000-00805f9b34fb',
+          sppBaudRate: 9600,
+          paperWidth: 80,
+          dotsPerLine: 576,
+          charactersPerLine: 48,
+          useRasterization: true,
+        };
+        
+        const saved = localStorage.getItem('waffle_bay_printer_config');
+        if (saved) {
+          try {
+            config = { ...config, ...JSON.parse(saved) };
+          } catch (e) {}
+        }
+        
+        const connected = await manager.connect(config);
+        if (!connected) {
+          throw new Error('Could not connect to printer. Please verify connection under settings.');
+        }
+      }
+
+      // 2. Prepare order and store details
+      toast.loading('Compiling receipt data...', { id: toastId });
+      
+      const printJob: PrintJobData = {
+        order_number: data.order_number,
+        receipt_id: data.receipt_id,
+        kot_number: data.kot_number,
+        business_date: data.business_date,
+        created_at: data.created_at,
+        subtotal: data.subtotal,
+        tax: data.tax,
+        discount: data.discount,
+        total: data.total,
+        items: data.items,
+        payments: data.payments,
+        offline: data.offline,
+      };
+
+      const storeProfile: StoreProfile = {
+        store_name: settings.store_name || 'Waffle Bay',
+        store_address: settings.store_address || '',
+        receipt_header: settings.receipt_header || '',
+        receipt_footer: settings.receipt_footer || '',
+        currency_symbol: settings.currency_symbol || '$',
+      };
+
+      let activeConfig = manager.getActiveConfig() || {
+        transport: 'spp' as const,
+        bleServiceUuid: '0000fff0-0000-1000-8000-00805f9b34fb',
+        bleWriteCharacteristicUuid: '0000fff1-0000-1000-8000-00805f9b34fb',
+        sppServiceClassId: '00001101-0000-1000-8000-00805f9b34fb',
+        sppBaudRate: 9600,
+        paperWidth: 80,
+        dotsPerLine: 576,
+        charactersPerLine: 48,
+        useRasterization: true,
+      };
+
+      const bytes = buildReceiptBytes(printJob, activeConfig, storeProfile);
+      
+      // 3. Print
+      toast.loading('Transmitting bytes to XP-E200L...', { id: toastId });
+      const success = await manager.print(bytes);
+      
+      if (success) {
+        toast.success('Receipt printed successfully!', { id: toastId });
+      } else {
+        throw new Error('Printer write failed. View printer settings console log.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error occurred during print', { id: toastId });
+    } finally {
+      setIsPrinting(false);
+    }
+  };
 
   useEffect(() => {
     if (data && !printTriggered.current && autoPrint) {
@@ -90,19 +188,30 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
       
       <div className="flex flex-col items-center w-full max-w-[340px] print:max-w-none my-auto">
         {/* Actions panel */}
-        <div className="w-[302px] mb-4 flex justify-between gap-3 print:hidden">
+        <div className="w-[302px] mb-4 flex flex-col gap-2 print:hidden">
+          <div className="flex gap-2">
+            <button 
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-white text-gray-800 border border-gray-200 font-semibold text-xs rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-sm flex items-center justify-center"
+            >
+              Close
+            </button>
+            <button 
+              onClick={() => window.print()}
+              className="flex-1 px-4 py-2 bg-gray-50 text-gray-700 border border-gray-200 font-semibold text-xs rounded-xl hover:bg-gray-100 active:scale-95 transition-all shadow-sm flex items-center justify-center space-x-1"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Native Print</span>
+            </button>
+          </div>
+          
           <button 
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 bg-white text-gray-800 border border-gray-200 font-semibold text-sm rounded-xl hover:bg-gray-50 active:scale-95 transition-all shadow-md flex items-center justify-center"
+            disabled={isPrinting}
+            onClick={handleBluetoothPrint}
+            className="w-full px-4 py-2.5 bg-[#FF6500] hover:bg-[#e65a00] disabled:bg-orange-300 text-white font-semibold text-xs rounded-xl active:scale-[0.98] transition-all shadow-md flex items-center justify-center space-x-1.5"
           >
-            Close
-          </button>
-          <button 
-            onClick={() => window.print()}
-            className="flex-1 px-4 py-2.5 bg-[#FF6500] text-white font-semibold text-sm rounded-xl hover:bg-[#e65a00] active:scale-95 transition-all shadow-md flex items-center justify-center space-x-1.5"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Print Receipt</span>
+            <Bluetooth className="w-4 h-4" />
+            <span>{isPrinting ? 'Printing...' : 'Print via Bluetooth (XP-E200L)'}</span>
           </button>
         </div>
 

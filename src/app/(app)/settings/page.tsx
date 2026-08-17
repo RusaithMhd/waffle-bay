@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { StoreConfigTab } from './StoreConfigTab'
 import { CategoriesTab } from './CategoriesTab'
 import { StaffTab } from './StaffTab'
+import { PrinterConfigTab } from './PrinterConfigTab'
 import { SettingsTabs } from './SettingsTabs'
 import { getCurrentUserWithRole } from '@/lib/auth'
 import { hasPermission }          from '@/lib/rbac'
@@ -67,6 +68,9 @@ export default async function SettingsPage({
         )}
         {activeTab === 'staff' && (
           <StaffTab staff={staffWithRoles} roles={roles || []} />
+        )}
+        {activeTab === 'printer' && (
+          <PrinterConfigTab storeSettings={storeSettings} />
         )}
       </div>
     </div>
