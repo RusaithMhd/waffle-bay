@@ -148,17 +148,45 @@ export class PrinterConnectionManager {
    * Connect via Web Bluetooth (BLE GATT)
    */
   private async connectBLE(config: PrinterConfig): Promise<boolean> {
-    this.log('info', `Requesting BLE device with Service UUID: ${config.bleServiceUuid}`);
-
     const serviceUuid = config.bleServiceUuid.toLowerCase();
     const charUuid = config.bleWriteCharacteristicUuid.toLowerCase();
-
-    // Scan for devices matching service
     const nav = navigator as any;
-    this.bleDevice = await nav.bluetooth.requestDevice({
-      filters: [{ services: [serviceUuid] }],
-    });
 
+    let device = null;
+
+    // 1. Try silent reconnection if supported
+    if (nav.bluetooth && 'getDevices' in nav.bluetooth) {
+      try {
+        const approvedDevices = await nav.bluetooth.getDevices();
+        this.log('info', `Checking ${approvedDevices.length} previously approved BLE devices...`);
+        
+        // Find a device that is likely our printer
+        device = approvedDevices.find((d: any) => {
+          const name = (d.name || '').toLowerCase();
+          return name.includes('printer') || name.includes('xp-') || name.includes('xprinter');
+        });
+
+        if (!device && approvedDevices.length > 0) {
+          device = approvedDevices[0];
+        }
+
+        if (device) {
+          this.log('info', `Reusing previously approved BLE device: ${device.name || 'Unnamed'}`);
+        }
+      } catch (e) {
+        this.log('warn', `Failed to query pre-approved BLE devices: ${e}`);
+      }
+    }
+
+    // 2. If no approved device found, prompt the user
+    if (!device) {
+      this.log('info', `Requesting BLE device with Service UUID: ${config.bleServiceUuid}`);
+      device = await nav.bluetooth.requestDevice({
+        filters: [{ services: [serviceUuid] }],
+      });
+    }
+
+    this.bleDevice = device;
     this.log('info', `Found BLE printer: ${this.bleDevice.name || 'Unnamed'}. Connecting to GATT...`);
     this.bleDevice.addEventListener('gattserverdisconnected', this.handleBLEDisconnect);
 
@@ -194,25 +222,52 @@ export class PrinterConnectionManager {
    * Connect via Web Serial (Bluetooth Classic SPP RFCOMM)
    */
   private async connectSPP(config: PrinterConfig): Promise<boolean> {
-    this.log('info', `Requesting Bluetooth Classic SPP Port with Service Class ID: ${config.sppServiceClassId}`);
-
     const serviceClassId = config.sppServiceClassId.toLowerCase();
-
-    // Ask user to choose the serial/RFCOMM port
     const nav = navigator as any;
-    this.sppPort = await nav.serial.requestPort({
-      filters: [{ bluetoothServiceClassId: serviceClassId }],
-      allowedBluetoothServiceClassIds: [serviceClassId],
-    });
 
+    let port = null;
+
+    // 1. Try silent reconnection if supported
+    if (nav.serial && 'getPorts' in nav.serial) {
+      try {
+        const approvedPorts = await nav.serial.getPorts();
+        this.log('info', `Checking ${approvedPorts.length} previously approved Serial ports...`);
+        
+        // Find by service class ID matching
+        port = approvedPorts.find((p: any) => {
+          const info = p.getInfo();
+          return info.bluetoothServiceClassId?.toLowerCase() === serviceClassId;
+        });
+
+        // Fallback to first port if exactly one is present
+        if (!port && approvedPorts.length > 0) {
+          port = approvedPorts[0];
+        }
+
+        if (port) {
+          this.log('info', 'Reusing previously approved Serial port.');
+        }
+      } catch (e) {
+        this.log('warn', `Failed to query pre-approved Serial ports: ${e}`);
+      }
+    }
+
+    // 2. Prompt user if no approved port is found
+    if (!port) {
+      this.log('info', `Requesting Bluetooth Classic SPP Port with Service Class ID: ${config.sppServiceClassId}`);
+      port = await nav.serial.requestPort({
+        filters: [{ bluetoothServiceClassId: serviceClassId }],
+        allowedBluetoothServiceClassIds: [serviceClassId],
+      });
+    }
+
+    this.sppPort = port;
     this.log('info', 'SPP Port selected. Opening serial connection...');
     this.updateState('CONNECTING');
 
     // Open port
     await this.sppPort.open({ baudRate: config.sppBaudRate });
-    this.log('info', `Serial Port opened at ${config.sppBaudRate} baud. Binding writer...`);
-
-    this.sppWriter = this.sppPort.writable.getWriter();
+    this.log('info', `Serial Port opened at ${config.sppBaudRate} baud.`);
 
     this.log('success', 'Connected to Classic Bluetooth SPP printer.');
     this.updateState('CONNECTED');
@@ -231,14 +286,20 @@ export class PrinterConnectionManager {
     this.updateState('PREPARING');
     this.log('info', `Preparing to print job of size ${bytes.length} bytes...`);
 
+    const isBle = this.transport === 'ble';
+    const chunkSize = isBle ? 180 : 1024; // BLE MTU chunking vs SPP stream chunking
+    let writer: any = null;
+
     try {
       this.updateState('PRINTING');
-
-      // Use chunk size optimized by transport
-      const isBle = this.transport === 'ble';
-      const chunkSize = isBle ? 180 : 1024; // BLE MTU chunking vs SPP stream chunking
-
       this.log('info', `Sending data chunks (size: ${chunkSize} bytes) to printer...`);
+
+      if (!isBle) {
+        if (!this.sppPort || !this.sppPort.writable) {
+          throw new Error('SPP Serial port is not writable.');
+        }
+        writer = this.sppPort.writable.getWriter();
+      }
 
       for (let offset = 0; offset < bytes.length; offset += chunkSize) {
         const chunk = bytes.slice(offset, offset + chunkSize);
@@ -255,8 +316,7 @@ export class PrinterConnectionManager {
             await new Promise((resolve) => setTimeout(resolve, 20));
           }
         } else {
-          if (!this.sppWriter) throw new Error('SPP Serial Writer lost');
-          await this.sppWriter.write(chunk);
+          await writer.write(chunk);
         }
       }
 
@@ -273,7 +333,26 @@ export class PrinterConnectionManager {
     } catch (err: any) {
       this.updateState('WRITE_FAILED');
       this.log('error', `Print write operation failed: ${err.message || err}`);
+      
+      // If error message indicates connection drop, trigger auto cleanup/disconnect
+      const errMsg = (err.message || '').toLowerCase();
+      if (
+        errMsg.includes('disconnect') || 
+        errMsg.includes('close') || 
+        errMsg.includes('abort') || 
+        errMsg.includes('device lost') ||
+        errMsg.includes('released')
+      ) {
+        this.handleDisconnect('Write error indicates link closure');
+      }
+      
       return false;
+    } finally {
+      if (writer) {
+        try {
+          writer.releaseLock();
+        } catch (e) {}
+      }
     }
   }
 
