@@ -322,12 +322,14 @@ export class PrinterConnectionManager {
 
       this.log('success', 'Print bytes transmitted successfully.');
       this.updateState('COMPLETED');
-      // Reset back to idle after a brief moment
-      setTimeout(() => {
+      // Auto-disconnect after a brief moment to allow hardware buffers to print and cut,
+      // and prevent stale port locks or unexpected logical drops.
+      setTimeout(async () => {
         if (this.state === 'COMPLETED') {
-          this.updateState('IDLE');
+          this.log('info', 'Auto-releasing printer connection to free the channel...');
+          await this.disconnect();
         }
-      }, 1500);
+      }, 2000);
 
       return true;
     } catch (err: any) {
@@ -403,9 +405,16 @@ export class PrinterConnectionManager {
    * Handle physical disconnects
    */
   private handleDisconnect(reason: string) {
+    const wasSuccessful = this.state === 'COMPLETED' || this.state === 'IDLE';
     this.cleanup();
-    this.updateState('DISCONNECTED');
-    this.log('warn', `Session closed. Reason: ${reason}`);
+    
+    if (wasSuccessful) {
+      this.updateState('IDLE');
+      this.log('info', `Printer connection closed cleanly (Idle/Cutter release). Reason: ${reason}`);
+    } else {
+      this.updateState('DISCONNECTED');
+      this.log('warn', `Session closed unexpectedly. Reason: ${reason}`);
+    }
   }
 
   private handleBLEDisconnect = () => {
