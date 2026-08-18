@@ -13,6 +13,8 @@ export const metadata: Metadata = {
 
 import { Toaster } from 'react-hot-toast';
 
+import { GlobalOrderReadyListener } from "@/components/GlobalOrderReadyListener";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -23,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Toaster position="top-right" toastOptions={{ duration: 3000, style: { background: '#333', color: '#fff' } }} />
         <ServiceWorkerRegister />
         <GlobalClickSound />
+        <GlobalOrderReadyListener />
         {children}
       </body>
     </html>

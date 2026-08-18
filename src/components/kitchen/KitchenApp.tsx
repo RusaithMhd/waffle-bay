@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient }     from '@/lib/supabase/client'
 import { CheckCircle2, Volume2, VolumeX } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import { KitchenHeader }    from './KitchenHeader'
 import { KitchenFilters, FilterStatus } from './KitchenFilters'
 import { KOTCard, KOTData, OrderStatus, ItemStatus } from './KOTCard'
@@ -387,7 +388,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
                 onUpdateStatus={handleUpdateStatus}
                 onToggleItem={handleToggleItem}
                 isUpdating={updatingIds.has(order.id)}
-                readOnly={userRole === 'cashier'}
+                userRole={userRole}
               />
             ))}
           </div>

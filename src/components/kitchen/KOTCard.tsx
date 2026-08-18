@@ -36,7 +36,7 @@ interface KOTCardProps {
   onUpdateStatus: (orderId: string, status: OrderStatus) => Promise<void>
   onToggleItem:   (itemId: string, current: ItemStatus)  => Promise<void>
   isUpdating: boolean
-  readOnly?: boolean
+  userRole?: string
 }
 
 // ── Elapsed time helpers ──────────────────────────────────────────────────────
@@ -180,7 +180,8 @@ function printKOT(order: KOTData) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, readOnly = false }: KOTCardProps) {
+export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, userRole }: KOTCardProps) {
+  const readOnlyItems = userRole === 'cashier' || userRole === 'waiter'
   const [showCompleted, setShowCompleted] = useState(false)
   const cfg    = STATUS_CONFIG[order.fulfillment_status]
   const secs   = getElapsedSeconds(order.created_at, now)
@@ -275,10 +276,10 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, 
         {pendingItems.map(item => (
           <button
             key={item.id}
-            onClick={() => readOnly ? undefined : onToggleItem(item.id, item.fulfillment_status)}
-            disabled={readOnly}
+            onClick={() => readOnlyItems ? undefined : onToggleItem(item.id, item.fulfillment_status)}
+            disabled={readOnlyItems}
             className={`w-full text-left px-3 py-3 sm:py-3.5 rounded-xl border transition-all ${
-              readOnly ? 'cursor-default' : 'active:scale-[0.98] cursor-pointer'
+              readOnlyItems ? 'cursor-default' : 'active:scale-[0.98] cursor-pointer'
             } bg-white/55 backdrop-blur-sm border-white/70 shadow-sm hover:bg-white/75`}
           >
             <div className="flex items-start justify-between gap-2">
@@ -329,8 +330,8 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, 
                 {completedItems.map(item => (
                   <button
                     key={item.id}
-                    onClick={() => readOnly ? undefined : onToggleItem(item.id, item.fulfillment_status)}
-                    disabled={readOnly}
+                    onClick={() => readOnlyItems ? undefined : onToggleItem(item.id, item.fulfillment_status)}
+                    disabled={readOnlyItems}
                     className="w-full text-left px-3 py-2.5 rounded-xl border border-black/5 bg-slate-50/50 opacity-55 hover:opacity-80 transition-all active:scale-[0.98]"
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -362,20 +363,33 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, 
       </div>
 
       {/* ── Primary Action Button ── */}
-      {!readOnly && order.fulfillment_status !== 'COMPLETED' && (
-        <div className="p-2 sm:p-3 shrink-0 border-t border-white/50 bg-white/30">
-          <button
-            onClick={handleAction}
-            disabled={isUpdating}
-            className={`w-full py-3.5 sm:py-4 rounded-xl font-black text-[14px] sm:text-[15px] tracking-wide transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed ${cfg.button.bg} ${cfg.button.text}`}
-          >
-            {isUpdating
-              ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Updating...</span></>
-              : <span>{cfg.button.label}</span>
-            }
-          </button>
-        </div>
-      )}
+      {order.fulfillment_status !== 'COMPLETED' && (() => {
+        const isAdmin = userRole === 'admin'
+        const isWaiter = userRole === 'waiter'
+        const isReady = order.fulfillment_status === 'READY'
+        
+        // Admin sees all buttons
+        // Waiter ONLY sees the button when status is READY
+        // Chef sees the button when status is NOT READY (i.e. NEW/PREPARING)
+        const canClickAction = isAdmin ? true : (isWaiter ? isReady : !isReady)
+
+        if (!canClickAction) return null
+
+        return (
+          <div className="p-2 sm:p-3 shrink-0 border-t border-white/50 bg-white/30">
+            <button
+              onClick={handleAction}
+              disabled={isUpdating}
+              className={`w-full py-3.5 sm:py-4 rounded-xl font-black text-[14px] sm:text-[15px] tracking-wide transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed ${cfg.button.bg} ${cfg.button.text}`}
+            >
+              {isUpdating
+                ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Updating...</span></>
+                : <span>{cfg.button.label}</span>
+              }
+            </button>
+          </div>
+        )
+      })()}
 
       {/* Completed stamp */}
       {order.fulfillment_status === 'COMPLETED' && (
