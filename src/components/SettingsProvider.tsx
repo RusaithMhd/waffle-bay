@@ -23,6 +23,7 @@ export interface StoreSettings {
   printer_use_rasterization?: boolean
   phone_number?: string
   logo_url?: string
+  half_and_half_surcharge?: number
 }
 
 const SettingsContext = createContext<StoreSettings | null>(null)

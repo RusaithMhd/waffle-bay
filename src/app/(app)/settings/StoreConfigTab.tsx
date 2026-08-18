@@ -17,7 +17,8 @@ export function StoreConfigTab({ settings }: { settings: any }) {
     receipt_footer: settings?.receipt_footer || 'Thank you for your business!',
     enable_discount: settings?.enable_discount ?? true,
     phone_number: settings?.phone_number || '',
-    logo_url: settings?.logo_url || ''
+    logo_url: settings?.logo_url || '',
+    half_and_half_surcharge: settings?.half_and_half_surcharge || 0
   })
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string>(settings?.logo_url || '')
@@ -171,6 +172,20 @@ export function StoreConfigTab({ settings }: { settings: any }) {
             value={formData.tax_rate}
             onChange={e => setFormData({ ...formData, tax_rate: Number(e.target.value) })}
             className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Half & Half Surcharge</label>
+          <input 
+            required
+            type="number"
+            step="0.01"
+            min="0"
+            value={formData.half_and_half_surcharge}
+            onChange={e => setFormData({ ...formData, half_and_half_surcharge: Number(e.target.value) })}
+            className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
+            placeholder="Extra charge for half & half waffles"
           />
         </div>
 

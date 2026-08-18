@@ -34,5 +34,6 @@ export interface Product {
   image_url?: string
   is_active: boolean
   sort_order: number
+  allow_half_and_half?: boolean
   modifier_groups?: ModifierGroup[]
 }

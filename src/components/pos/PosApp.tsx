@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/client'
 import { getBusinessDate } from '@/lib/dateUtils'
 import Link from 'next/link'
 import Image from 'next/image'
+import { HalfAndHalfModal } from './HalfAndHalfModal'
 
 const CartItemRow = ({
   item,
@@ -597,7 +598,9 @@ export function PosApp({
   const [kotAuditLogs, setKotAuditLogs] = useState<any[]>([])
   const [isKOTProcessing, setIsKOTProcessing] = useState(false)
 
-
+  // Half & Half
+  const [isHalfAndHalfModalOpen, setIsHalfAndHalfModalOpen] = useState(false)
+  
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -823,6 +826,29 @@ export function PosApp({
     }
   }
 
+  const handleHalfAndHalfAddToCart = (firstHalf: Product, secondHalf: Product) => {
+    const customPrice = (firstHalf.base_price / 2) + (secondHalf.base_price / 2) + (settings.half_and_half_surcharge || 0)
+
+    const halfAndHalfProduct: Product = {
+      id: 'HALF-AND-HALF',
+      name: 'Half & Half Waffle',
+      base_price: customPrice,
+      is_active: true,
+      sort_order: 0,
+      category_id: null
+    }
+
+    const note = `½ ${firstHalf.name}\n½ ${secondHalf.name}`
+
+    addToCart(halfAndHalfProduct, [], 1, note, {
+      type: 'half_and_half',
+      halves: [
+        { product_id: firstHalf.id, product_name: firstHalf.name },
+        { product_id: secondHalf.id, product_name: secondHalf.name }
+      ]
+    })
+  }
+
   const handleAddWithModifiers = () => {
     if (selectedProduct) {
       addToCart(selectedProduct, selectedModifiers, 1, selectedNote)
@@ -908,12 +934,13 @@ export function PosApp({
       const payload = {
         order_id: activeOrderId,
         new_items: newItems.map(item => ({
-          product_id: item.product.id,
+          product_id: item.product.id === 'HALF-AND-HALF' ? null : item.product.id,
           product_name_snapshot: item.product.name,
           unit_price_snapshot: item.customPrice !== undefined ? item.customPrice : item.product.base_price,
           quantity: item.quantity,
           subtotal: item.itemTotal,
           notes: item.note,
+          metadata: item.metadata,
           modifiers: item.modifiers.map(mod => ({
             modifier_id: mod.id,
             modifier_name_snapshot: mod.name,
@@ -971,12 +998,13 @@ export function PosApp({
       order_type: orderType || 'DINE_IN',
       table_number: tableNumber,
       items: cart.map(item => ({
-        product_id: item.product.id,
+        product_id: item.product.id === 'HALF-AND-HALF' ? null : item.product.id,
         product_name_snapshot: item.product.name,
         unit_price_snapshot: item.customPrice !== undefined ? item.customPrice : item.product.base_price,
         quantity: item.quantity,
         subtotal: item.itemTotal,
         notes: item.note,
+        metadata: item.metadata,
         modifiers: item.modifiers.map(mod => ({
           modifier_id: mod.id,
           modifier_name_snapshot: mod.name,
@@ -1184,6 +1212,17 @@ export function PosApp({
 
         {/* PRODUCT GRID */}
         <div className="flex-1 overflow-y-auto px-2 sm:px-4 pb-32 lg:pb-6">
+          {activeProducts.some(p => p.allow_half_and_half) && (
+            <div className="mb-4">
+              <button
+                onClick={() => setIsHalfAndHalfModalOpen(true)}
+                className="w-full bg-gradient-to-r from-orange-500 to-[#FF6500] hover:from-orange-600 hover:to-orange-600 text-white font-bold py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 active:scale-[0.98]"
+              >
+                <span>Create Half & Half Waffle</span>
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3">
             {filteredProducts.map(product => {
               const inCartCount = cart.filter(item => item.product.id === product.id).reduce((sum, item) => sum + item.quantity, 0)
@@ -1872,6 +1911,15 @@ export function PosApp({
 
       {/* Audio notification */}
       <audio ref={readyAudioRef} src="/Complete.mp3" preload="auto" />
+
+      <HalfAndHalfModal
+        isOpen={isHalfAndHalfModalOpen}
+        onClose={() => setIsHalfAndHalfModalOpen(false)}
+        onAddToCart={handleHalfAndHalfAddToCart}
+        products={activeProducts.filter(p => p.allow_half_and_half)}
+        surcharge={settings.half_and_half_surcharge || 0}
+        currencySymbol={settings.currency_symbol || '$'}
+      />
     </div>
   )
 }
