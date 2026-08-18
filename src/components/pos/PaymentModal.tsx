@@ -166,6 +166,7 @@ export function PaymentModal({ onClose, onSuccess, userRole, activeOrder }: Paym
       let res
       if (activeOrderId) {
         res = await processPayment({
+          ...payload,
           order_id: activeOrderId,
           payments: payments
         })

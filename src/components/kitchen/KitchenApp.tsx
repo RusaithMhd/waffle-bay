@@ -59,8 +59,7 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
       audio.volume = 0.85
       const playPromise = audio.play()
       if (playPromise !== undefined) {
-        playPromise.catch(err => {
-          console.warn('[Kitchen] Audio play blocked:', err)
+        playPromise.catch(() => {
           setSoundUnlocked(false)
         })
       }

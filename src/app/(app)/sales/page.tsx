@@ -177,6 +177,7 @@ export default async function SalesPage(props: { searchParams: Promise<{ period?
         pagination={{ page, totalPages, totalCount: totalCount || 0 }}
         filters={{ period, specificDate: specificDate || '', search }}
         currency={settings?.currency_symbol || 'Rs.'}
+        userRole={userWithRole.role}
       />
     </div>
   )

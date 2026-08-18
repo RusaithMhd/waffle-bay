@@ -103,6 +103,8 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
         receipt_header: settings.receipt_header || '',
         receipt_footer: settings.receipt_footer || '',
         currency_symbol: settings.currency_symbol || '$',
+        phone_number: settings.phone_number || '',
+        logo_url: settings.logo_url || '',
       };
 
       let activeConfig = manager.getActiveConfig() || {
@@ -217,8 +219,14 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
         <div id="printable-receipt" className="w-[302px] bg-white p-6 font-mono text-sm text-black shadow-2xl rounded-2xl print:shadow-none print:rounded-none">
           {/* Header */}
           <div className="text-center mb-6">
+            {settings.logo_url && (
+              <div className="flex justify-center mb-3">
+                <img src={settings.logo_url} alt="Store Logo" className="w-16 h-16 object-contain grayscale" />
+              </div>
+            )}
             <h2 className="text-2xl font-bold text-gray-900 mb-1">{settings.store_name}</h2>
             {settings.store_address && <p className="text-xs text-gray-700 whitespace-pre-wrap">{settings.store_address}</p>}
+            {settings.phone_number && <p className="text-xs text-gray-700 mt-0.5">{settings.phone_number}</p>}
             {settings.receipt_header && <p className="text-xs text-gray-600 mt-2 italic">{settings.receipt_header}</p>}
             
             <div className="text-xs text-gray-700 mt-3 pt-3 border-t border-dashed border-gray-300 space-y-1">

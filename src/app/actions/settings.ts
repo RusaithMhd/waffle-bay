@@ -12,6 +12,8 @@ export async function updateStoreSettings(data: {
   receipt_header: string
   receipt_footer: string
   enable_discount: boolean
+  phone_number?: string
+  logo_url?: string
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -25,13 +27,16 @@ export async function updateStoreSettings(data: {
     receipt_header: data.receipt_header,
     receipt_footer: data.receipt_footer,
     enable_discount: data.enable_discount,
+    phone_number: data.phone_number,
+    logo_url: data.logo_url,
     updated_at: new Date().toISOString()
   }).eq('id', 1)
 
   if (error) return { success: false, error: error.message }
   
   revalidatePath('/settings')
-  revalidatePath('/pos') // To reflect changes in POS receipt
+  revalidatePath('/pos')
+  revalidatePath('/', 'layout') // Force layout SettingsProvider to refetch
   return { success: true }
 }
 

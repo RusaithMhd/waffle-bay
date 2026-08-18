@@ -989,6 +989,27 @@ export function PosApp({
       const res = await createKOTOrder(payload)
       if (res.success && res.data) {
         setActiveOrderId(res.data.order_id)
+        
+        // Fetch the full order details and load them into the cart to mark items as saved
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('orders')
+          .select(`
+            id, order_number, subtotal, tax, discount, total, status, fulfillment_status, order_type, table_number, created_at, discount_type, discount_value,
+            payments(*),
+            order_items(
+              id, product_id, product_name_snapshot, unit_price_snapshot, quantity, subtotal, notes,
+              order_item_modifiers(
+                id, modifier_id, modifier_name_snapshot, modifier_price_snapshot, quantity
+              )
+            )
+          `)
+          .eq('id', res.data.order_id)
+          .single()
+
+        if (!error && data) {
+          loadSavedOrder(data)
+        }
       } else {
         alert(res.error || 'Failed to submit order to kitchen')
       }
