@@ -4,9 +4,12 @@ import { useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Search, Calendar, ChevronLeft, ChevronRight, TrendingUp, ShoppingBag, DollarSign, Receipt as ReceiptIcon, LayoutDashboard, ListOrdered, Download } from 'lucide-react'
 import { Receipt, ReceiptData } from '@/components/pos/Receipt'
+import { ConfirmDialog } from '@/components/ConfirmDialog'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { deleteOrderById } from '@/app/actions/data-management'
+import toast from 'react-hot-toast'
 
-export function SalesClient({ orders, metrics, analytics, pagination, filters, currency }: any) {
+export function SalesClient({ orders, metrics, analytics, pagination, filters, currency, userRole }: any) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -14,6 +17,7 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
   const [searchInput, setSearchInput] = useState(filters.search)
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions'>('dashboard')
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
 
   const updateFilters = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -61,6 +65,25 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
       }))
     }
     setSelectedReceipt(receiptData)
+  }
+
+  const handleDeleteOrderClick = (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setOrderToDelete(orderId)
+  }
+
+  const confirmDeleteOrder = async () => {
+    if (!orderToDelete) return
+
+    try {
+      await deleteOrderById(orderToDelete)
+      toast.success('Order deleted successfully')
+      router.refresh()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete order')
+    } finally {
+      setOrderToDelete(null)
+    }
   }
 
   return (
@@ -342,6 +365,15 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                     </span>
                     <span className="text-sm font-bold text-gray-900 flex items-center">
                       {currency} {Number(order.total).toFixed(2)}
+                      {userRole === 'admin' && (
+                        <button
+                          onClick={(e) => handleDeleteOrderClick(order.id, e)}
+                          className="ml-3 p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Order"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                        </button>
+                      )}
                       <ReceiptIcon className="w-4 h-4 ml-1.5 text-gray-400" />
                     </span>
                   </div>
@@ -362,6 +394,7 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                     <th className="px-6 py-4 font-medium">Cashier</th>
                     <th className="px-6 py-4 font-medium">Status</th>
                     <th className="px-6 py-4 font-medium text-right">Total Amount</th>
+                    {userRole === 'admin' && <th className="px-4 py-4 font-medium text-right w-16"></th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -420,6 +453,17 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                           {currency} {Number(order.total).toFixed(2)}
                           <ReceiptIcon className="w-4 h-4 inline ml-2 text-gray-300 group-hover:text-[#FF6500] transition-colors" />
                         </td>
+                        {userRole === 'admin' && (
+                          <td className="px-4 py-4 text-right">
+                            <button
+                              onClick={(e) => handleDeleteOrderClick(order.id, e)}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                              title="Delete Order"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}
@@ -458,6 +502,18 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
       {/* Receipt Modal Overlay */}
       {selectedReceipt && (
         <Receipt data={selectedReceipt} onClose={() => setSelectedReceipt(null)} autoPrint={false} />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {orderToDelete && (
+        <ConfirmDialog
+          title="Delete Order"
+          message="Are you sure you want to permanently delete this order and all its items? This action cannot be undone."
+          confirmText="Delete Order"
+          onConfirm={confirmDeleteOrder}
+          onCancel={() => setOrderToDelete(null)}
+          isDestructive={true}
+        />
       )}
     </div>
   )

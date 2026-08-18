@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Store, Users, Layers, Printer } from 'lucide-react'
+import { Store, Users, Layers, Printer, Database } from 'lucide-react'
 
 export function SettingsTabs({ activeTab }: { activeTab: string }) {
   const tabs = [
@@ -9,6 +9,7 @@ export function SettingsTabs({ activeTab }: { activeTab: string }) {
     { id: 'categories', name: 'Menu Categories', icon: Layers },
     { id: 'staff', name: 'Staff & Roles', icon: Users },
     { id: 'printer', name: 'Printer Settings', icon: Printer },
+    { id: 'data', name: 'Data Management', icon: Database },
   ]
 
   return (

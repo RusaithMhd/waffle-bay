@@ -136,6 +136,11 @@ export function buildReceiptBytes(
     });
   }
 
+  // Phone Number
+  if (store.phone_number) {
+    writeLine(store.phone_number, 'center');
+  }
+
   // Header Note
   if (store.receipt_header) {
     builder.feed(1);

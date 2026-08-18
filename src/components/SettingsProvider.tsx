@@ -21,6 +21,8 @@ export interface StoreSettings {
   printer_dots_per_line?: number
   printer_characters_per_line?: number
   printer_use_rasterization?: boolean
+  phone_number?: string
+  logo_url?: string
 }
 
 const SettingsContext = createContext<StoreSettings | null>(null)

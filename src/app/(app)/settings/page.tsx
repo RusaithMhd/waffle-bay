@@ -4,6 +4,7 @@ import { StoreConfigTab } from './StoreConfigTab'
 import { CategoriesTab } from './CategoriesTab'
 import { StaffTab } from './StaffTab'
 import { PrinterConfigTab } from './PrinterConfigTab'
+import { DataManagementTab } from './DataManagementTab'
 import { SettingsTabs } from './SettingsTabs'
 import { getCurrentUserWithRole } from '@/lib/auth'
 import { hasPermission }          from '@/lib/rbac'
@@ -71,6 +72,9 @@ export default async function SettingsPage({
         )}
         {activeTab === 'printer' && (
           <PrinterConfigTab storeSettings={storeSettings} />
+        )}
+        {activeTab === 'data' && (
+          <DataManagementTab />
         )}
       </div>
     </div>

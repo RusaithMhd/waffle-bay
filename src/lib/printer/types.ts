@@ -70,6 +70,8 @@ export interface StoreProfile {
   receipt_header?: string;
   receipt_footer?: string;
   currency_symbol: string;
+  phone_number?: string;
+  logo_url?: string;
 }
 
 export interface LogMessage {

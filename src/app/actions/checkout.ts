@@ -202,7 +202,7 @@ export async function createKOTOrder(payload: Omit<CheckoutPayload, 'payments'>)
   return { success: true, data }
 }
 
-export async function processPayment(payload: { order_id: string; payments: CheckoutPayload['payments'] }) {
+export async function processPayment(payload: CheckoutPayload & { order_id: string }) {
   const userWithRole = await getCurrentUserWithRole()
   if (!userWithRole) {
     return { success: false, error: 'Not authenticated' }

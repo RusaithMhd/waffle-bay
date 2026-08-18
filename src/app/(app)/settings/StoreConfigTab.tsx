@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { updateStoreSettings } from '@/app/actions/settings'
-import { Save } from 'lucide-react'
+import { Save, Upload, X } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import { createClient } from '@/lib/supabase/client'
 
 export function StoreConfigTab({ settings }: { settings: any }) {
   const [isSaving, setIsSaving] = useState(false)
@@ -14,15 +15,47 @@ export function StoreConfigTab({ settings }: { settings: any }) {
     tax_rate: settings?.tax_rate || 0,
     receipt_header: settings?.receipt_header || 'Welcome to Waffle Bay!',
     receipt_footer: settings?.receipt_footer || 'Thank you for your business!',
-    enable_discount: settings?.enable_discount ?? true
+    enable_discount: settings?.enable_discount ?? true,
+    phone_number: settings?.phone_number || '',
+    logo_url: settings?.logo_url || ''
   })
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string>(settings?.logo_url || '')
+  
+  const supabase = createClient()
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
     
-    const res = await updateStoreSettings(formData)
+    let finalLogoUrl = formData.logo_url
+    if (logoFile) {
+      const fileExt = logoFile.name.split('.').pop()
+      const fileName = `logo-${Date.now()}.${fileExt}`
+      const { error: uploadError, data } = await supabase.storage
+        .from('store-assets')
+        .upload(fileName, logoFile, { upsert: true })
+
+      if (uploadError) {
+        toast.error('Failed to upload logo: ' + uploadError.message)
+        setIsSaving(false)
+        return
+      }
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('store-assets')
+        .getPublicUrl(data.path)
+        
+      finalLogoUrl = publicUrl
+    }
+    
+    const res = await updateStoreSettings({
+      ...formData,
+      logo_url: finalLogoUrl
+    })
     
     if (res.success) {
+      setFormData(prev => ({ ...prev, logo_url: finalLogoUrl }))
+      setLogoFile(null)
       toast.success('Settings saved successfully!')
     } else {
       toast.error(`Error: ${res.error}`)
@@ -58,14 +91,74 @@ export function StoreConfigTab({ settings }: { settings: any }) {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Store Address</label>
+            <input 
+              type="text"
+              value={formData.store_address}
+              onChange={e => setFormData({ ...formData, store_address: e.target.value })}
+              className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+            <input 
+              type="text"
+              value={formData.phone_number}
+              onChange={e => setFormData({ ...formData, phone_number: e.target.value })}
+              className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
+            />
+          </div>
+        </div>
+
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Store Address</label>
-          <input 
-            type="text"
-            value={formData.store_address}
-            onChange={e => setFormData({ ...formData, store_address: e.target.value })}
-            className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
-          />
+          <label className="block text-sm font-medium text-gray-700 mb-2">Store Logo</label>
+          <div className="flex items-center space-x-6">
+            {logoPreview ? (
+              <div className="relative w-32 h-32 rounded-xl border-2 border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
+                <img src={logoPreview} alt="Store Logo" className="max-w-full max-h-full object-contain p-2" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLogoPreview('')
+                    setLogoFile(null)
+                    setFormData({ ...formData, logo_url: '' })
+                  }}
+                  className="absolute top-1 right-1 bg-white rounded-full p-1 shadow hover:bg-gray-100"
+                >
+                  <X className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+            ) : (
+              <div className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+                <span className="text-gray-400 text-sm">No Logo</span>
+              </div>
+            )}
+            <div>
+              <input
+                type="file"
+                id="logo-upload"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) {
+                    setLogoFile(file)
+                    setLogoPreview(URL.createObjectURL(file))
+                  }
+                }}
+              />
+              <label
+                htmlFor="logo-upload"
+                className="cursor-pointer bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl hover:bg-gray-50 inline-flex items-center space-x-2 shadow-sm text-sm font-medium"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Choose Image</span>
+              </label>
+              <p className="text-xs text-gray-500 mt-2">Recommended: Square PNG/JPG</p>
+            </div>
+          </div>
         </div>
 
         <div>
