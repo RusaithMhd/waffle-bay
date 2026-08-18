@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 // --- Store Settings ---
@@ -104,8 +105,10 @@ export async function updateUserRole(userId: string, roleId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'Unauthorized' }
 
-  // Overwrite existing role assignment
-  const { error } = await supabase.from('user_roles').upsert({
+  const admin = createAdminClient()
+
+  // Overwrite existing role assignment using admin bypass
+  const { error } = await admin.from('user_roles').upsert({
     user_id: userId,
     role_id: roleId
   }, { onConflict: 'user_id' })
@@ -113,8 +116,8 @@ export async function updateUserRole(userId: string, roleId: string) {
   if (error) {
     // If UPSERT fails due to lack of a unique constraint on user_id alone, we will do a delete + insert instead.
     // user_roles has UNIQUE(user_id, role_id) but not necessarily user_id as primary.
-    await supabase.from('user_roles').delete().eq('user_id', userId)
-    const { error: insertError } = await supabase.from('user_roles').insert({
+    await admin.from('user_roles').delete().eq('user_id', userId)
+    const { error: insertError } = await admin.from('user_roles').insert({
       user_id: userId,
       role_id: roleId
     })
