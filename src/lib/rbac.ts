@@ -34,6 +34,7 @@ export type Permission =
   | 'inventory'
   | 'accounting'
   | 'settings'
+  | 'cashier.settings' // cashier-scoped settings (Printer Connect)
   | 'shifts'
   | 'reports'
   | 'sales'
@@ -60,6 +61,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'pos',
     'shifts',
     'kitchen',
+    'cashier.settings',
   ],
 
   waiter: [
@@ -76,14 +78,15 @@ export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
 // Key = pathname prefix. Value = permission required to access it.
 
 export const ROUTE_PERMISSIONS: Record<string, Permission> = {
-  '/':            'dashboard',
-  '/pos':         'pos',
-  '/kitchen':     'kitchen',
-  '/products':    'products.view',
-  '/inventory':   'inventory',
-  '/accounting':  'accounting',
-  '/settings':    'settings',
-  '/sales':       'sales',
+  '/':                   'dashboard',
+  '/pos':                'pos',
+  '/kitchen':            'kitchen',
+  '/products':           'products.view',
+  '/inventory':          'inventory',
+  '/accounting':         'accounting',
+  '/settings':           'settings',
+  '/cashier-settings':   'cashier.settings',
+  '/sales':              'sales',
 }
 
 // ── Role home pages (redirect after login) ───────────────────────────────────
@@ -116,15 +119,16 @@ export interface NavItem {
 }
 
 export const ALL_NAV_ITEMS: NavItem[] = [
-  { name: 'Dashboard',      href: '/',          icon: 'LayoutDashboard', permission: 'dashboard'       },
-  { name: 'Point of Sale',  href: '/pos',        icon: 'Store',           permission: 'pos'             },
-  { name: 'Kitchen',        href: '/kitchen',    icon: 'ChefHat',         permission: 'kitchen'         },
-  { name: 'Products',       href: '/products',   icon: 'Coffee',          permission: 'products.view'   },
-  { name: 'Toppings',       href: '/toppings',   icon: 'Layers',          permission: 'products.view'   },
-  // { name: 'Inventory',      href: '/inventory',  icon: 'Package',         permission: 'inventory'       },
-  { name: 'Sales History',  href: '/sales',      icon: 'Receipt',         permission: 'sales'           },
-  { name: 'Accounting',     href: '/accounting', icon: 'Calculator',      permission: 'accounting'      },
-  { name: 'Settings',       href: '/settings',   icon: 'Settings',        permission: 'settings'        },
+  { name: 'Dashboard',      href: '/',                   icon: 'LayoutDashboard', permission: 'dashboard'        },
+  { name: 'Point of Sale',  href: '/pos',                icon: 'Store',           permission: 'pos'              },
+  { name: 'Kitchen',        href: '/kitchen',            icon: 'ChefHat',         permission: 'kitchen'          },
+  { name: 'Products',       href: '/products',           icon: 'Coffee',          permission: 'products.view'    },
+  { name: 'Toppings',       href: '/toppings',           icon: 'Layers',          permission: 'products.view'    },
+  // { name: 'Inventory',      href: '/inventory',          icon: 'Package',         permission: 'inventory'        },
+  { name: 'Sales History',  href: '/sales',              icon: 'Receipt',         permission: 'sales'            },
+  { name: 'Accounting',     href: '/accounting',         icon: 'Calculator',      permission: 'accounting'       },
+  { name: 'Settings',       href: '/settings',           icon: 'Settings',        permission: 'settings'         },
+  { name: 'Settings',       href: '/cashier-settings',   icon: 'Settings',        permission: 'cashier.settings' },
 ]
 
 export function getNavItemsForRole(role: AppRole | null | undefined): NavItem[] {
