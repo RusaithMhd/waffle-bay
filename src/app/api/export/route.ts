@@ -80,7 +80,11 @@ function buildSheet(
 
 export async function GET(request: Request) {
   const user = await getCurrentUserWithRole()
-  if (!user || (!hasPermission(user.role, 'accounting') && !hasPermission(user.role, 'sales'))) {
+  if (!user || (
+    !hasPermission(user.role, 'accounting') &&
+    !hasPermission(user.role, 'sales') &&
+    !hasPermission(user.role, 'products.view')
+  )) {
     return new NextResponse('Unauthorized', { status: 401 })
   }
 
@@ -197,6 +201,53 @@ export async function GET(request: Request) {
     salesRows.push(['', '', '', '', '', '', 'TOTAL', '', fmtNum(totalTax), '', fmtNum(totalSales), '', ''])
 
     buildSheet(wb, 'Sales Report', `${storeName} – Sales Report`, periodLabel, salesHeaders, salesRows)
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // PRODUCTS CATALOGUE
+  // ════════════════════════════════════════════════════════════════════════════
+  if (type === 'products') {
+    const { data: products, error: prodError } = await supabase
+      .from('products')
+      .select('name, description, base_price, sku, is_active, sort_order, category:categories(name)')
+      .order('name')
+
+    if (prodError) return new NextResponse('Error: ' + prodError.message, { status: 500 })
+
+    const prodHeaders = [
+      '#',
+      'Product Name',
+      'Category',
+      `Base Price (${currency})`,
+      'SKU',
+      'Status',
+      'Description',
+    ]
+
+    const prodRows: (string | number)[][] = (products ?? []).map((p, i) => [
+      i + 1,
+      fmt(p.name),
+      fmt((p.category as any)?.name ?? 'Uncategorized'),
+      fmtNum(p.base_price),
+      fmt(p.sku ?? ''),
+      p.is_active ? 'Active' : 'Inactive',
+      fmt(p.description ?? ''),
+    ])
+
+    // Summary totals row
+    const totalActive   = (products ?? []).filter(p => p.is_active).length
+    const totalInactive = (products ?? []).length - totalActive
+    prodRows.push([])
+    prodRows.push(['', 'TOTAL PRODUCTS', String((products ?? []).length), '', '', `Active: ${totalActive}  |  Inactive: ${totalInactive}`, ''])
+
+    buildSheet(
+      wb,
+      'Products',
+      `${storeName} – Products Catalogue`,
+      `Exported on ${new Date().toLocaleDateString()}`,
+      prodHeaders,
+      prodRows
+    )
   }
 
   // ════════════════════════════════════════════════════════════════════════════
