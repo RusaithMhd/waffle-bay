@@ -164,14 +164,14 @@ export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) 
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 gap-3">
         <div>
           <h2 className="text-[16px] font-bold text-gray-900">Staff Accounts</h2>
           <p className="text-[13px] text-gray-500 mt-0.5">Create and manage staff logins with role-based access.</p>
         </div>
         <button
           onClick={() => { setShowCreate(!showCreate); setCreateError(null) }}
-          className="flex items-center space-x-2 bg-[#FF6500] hover:bg-[#e65a00] text-white font-semibold text-[14px] px-4 py-2 rounded-xl transition-colors"
+          className="flex items-center justify-center space-x-2 bg-[#FF6500] hover:bg-[#e65a00] text-white font-semibold text-[14px] px-4 py-2.5 rounded-xl transition-colors w-full sm:w-auto"
         >
           {showCreate ? <><X className="w-4 h-4" /><span>Cancel</span></> : <><Plus className="w-4 h-4" /><span>Create Staff</span></>}
         </button>
