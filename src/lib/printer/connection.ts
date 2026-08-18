@@ -152,15 +152,22 @@ export class PrinterConnectionManager {
     const charUuid = config.bleWriteCharacteristicUuid.toLowerCase();
     const nav = navigator as any;
 
-    let device = null;
+    let device: any = null;
 
-    // 1. Try silent reconnection if supported (Chrome desktop only)
-    if (nav.bluetooth && 'getDevices' in nav.bluetooth) {
+    // ── Priority 1: Reuse cached device from a previous session (soft-disconnect path) ──
+    // After a print the device ref is kept alive. We can reconnect silently without
+    // showing the picker — works on ALL platforms including Android tablets.
+    if (this.bleDevice) {
+      this.log('info', `Reusing cached BLE device: ${this.bleDevice.name || 'Unnamed'} — reconnecting GATT silently...`);
+      device = this.bleDevice;
+    }
+
+    // ── Priority 2: Silent reconnect via getDevices() (desktop Chrome only) ──
+    if (!device && nav.bluetooth && 'getDevices' in nav.bluetooth) {
       try {
         const approvedDevices = await nav.bluetooth.getDevices();
         this.log('info', `Checking ${approvedDevices.length} previously approved BLE devices...`);
         
-        // Find a device that is likely our printer
         device = approvedDevices.find((d: any) => {
           const name = (d.name || '').toLowerCase();
           return name.includes('printer') || name.includes('xp-') || name.includes('xprinter');
@@ -178,25 +185,27 @@ export class PrinterConnectionManager {
       }
     }
 
-    // 2. If no approved device found, prompt the user
+    // ── Priority 3: Prompt user (first-time connection or explicit reconnect) ──
     if (!device) {
-      // Strategy 1: Filter by service UUID (works when printer advertises its service UUID)
+      // Strategy A: Filter by service UUID (clean list, shows only matching devices)
       this.log('info', `Requesting BLE device with Service UUID filter: ${config.bleServiceUuid}`);
       try {
         device = await nav.bluetooth.requestDevice({
           filters: [{ services: [serviceUuid] }],
         });
       } catch (filterErr: any) {
-        // If user cancelled, re-throw immediately
-        if (filterErr.name === 'NotFoundError' || filterErr.message?.toLowerCase().includes('cancel')) {
+        // User cancelled — stop immediately, don't fall back
+        if (
+          filterErr.name === 'NotFoundError' ||
+          filterErr.message?.toLowerCase().includes('cancel') ||
+          filterErr.message?.toLowerCase().includes('user cancel')
+        ) {
           throw filterErr;
         }
 
-        // Strategy 2 (Android / BT 4.2 fallback): acceptAllDevices with optional service hint.
-        // Some printers (especially on Android / Bluetooth 4.2) don't advertise their service UUID
-        // in the BLE advertisement packet, causing the filter scan to return zero results.
-        // acceptAllDevices lets the user pick from the full BLE scan list.
-        this.log('warn', `Service UUID filter scan failed (${filterErr.message}). Falling back to full BLE scan — all nearby devices will be shown.`);
+        // Strategy B (Android / BT 4.2 fallback): printer doesn't broadcast its service
+        // UUID in advertisement packets → strict filter finds nothing → show full scan.
+        this.log('warn', `UUID filter scan failed (${filterErr.message}). Falling back to full BLE scan.`);
         device = await nav.bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: [serviceUuid],
@@ -340,12 +349,13 @@ export class PrinterConnectionManager {
 
       this.log('success', 'Print bytes transmitted successfully.');
       this.updateState('COMPLETED');
-      // Auto-disconnect after a brief moment to allow hardware buffers to print and cut,
-      // and prevent stale port locks or unexpected logical drops.
+      // Soft-disconnect after print: release the GATT/serial channel but keep the
+      // bleDevice reference alive so the next print can silently reconnect without
+      // showing the Bluetooth picker again (critical for Android tablets).
       setTimeout(async () => {
         if (this.state === 'COMPLETED') {
-          this.log('info', 'Auto-releasing printer connection to free the channel...');
-          await this.disconnect();
+          this.log('info', 'Auto-releasing GATT channel (device reference retained for reconnect)...');
+          await this.softDisconnect();
         }
       }, 2000);
 
@@ -377,21 +387,38 @@ export class PrinterConnectionManager {
   }
 
   /**
-   * Disconnect and release all hardware hooks
+   * Full disconnect — releases all hardware references including the device handle.
+   * Call this when the user explicitly disconnects.
    */
   public async disconnect(): Promise<void> {
     this.log('info', 'Closing printer connection...');
-    await this.cleanup();
+    await this.cleanup(false);
     this.updateState('IDLE');
     this.log('info', 'Printer connection released.');
   }
 
   /**
-   * Cleans up stale variables and closes connections
+   * Soft disconnect — closes the active GATT/serial session but retains the
+   * bleDevice reference so the next print can silently reconnect without
+   * prompting the Bluetooth device picker (essential on Android tablets).
    */
-  private async cleanup() {
-    // 1. Clean BLE GATT connection
+  private async softDisconnect(): Promise<void> {
+    this.log('info', 'Soft-releasing GATT session (device cached for reconnect)...');
+    await this.cleanup(true);
+    this.updateState('IDLE');
+  }
+
+  /**
+   * Cleans up stale variables and closes connections.
+   * @param keepDeviceRef - If true, retains this.bleDevice so a silent reconnect
+   *   is possible without showing the Bluetooth picker again (used after print).
+   *   If false (default), fully clears all references.
+   */
+  private async cleanup(keepDeviceRef = false) {
+    // 1. Close BLE GATT session
     if (this.bleDevice) {
+      // Always remove the disconnect listener before closing so we don't trigger
+      // a spurious DISCONNECTED state when we intentionally close the channel.
       this.bleDevice.removeEventListener('gattserverdisconnected', this.handleBLEDisconnect);
       if (this.bleDevice.gatt && this.bleDevice.gatt.connected) {
         this.bleDevice.gatt.disconnect();
@@ -410,13 +437,18 @@ export class PrinterConnectionManager {
       } catch (e) {}
     }
 
-    // Reset handles
-    this.bleDevice = null;
+    // Reset active-session handles
     this.bleGattServer = null;
     this.bleCharacteristic = null;
     this.sppPort = null;
     this.sppWriter = null;
     this.transport = null;
+
+    // Only clear the device reference on a full disconnect.
+    // Keeping it allows silent reconnect on the next print.
+    if (!keepDeviceRef) {
+      this.bleDevice = null;
+    }
   }
 
   /**
