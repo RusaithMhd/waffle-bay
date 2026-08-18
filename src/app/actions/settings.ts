@@ -11,6 +11,7 @@ export async function updateStoreSettings(data: {
   tax_rate: number
   receipt_header: string
   receipt_footer: string
+  enable_discount: boolean
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -23,6 +24,7 @@ export async function updateStoreSettings(data: {
     tax_rate: data.tax_rate,
     receipt_header: data.receipt_header,
     receipt_footer: data.receipt_footer,
+    enable_discount: data.enable_discount,
     updated_at: new Date().toISOString()
   }).eq('id', 1)
 
@@ -115,5 +117,40 @@ export async function updateUserRole(userId: string, roleId: string) {
   }
   
   revalidatePath('/settings')
+  return { success: true }
+}
+
+export async function updatePrinterSettings(config: {
+  transport: 'ble' | 'spp'
+  bleServiceUuid: string
+  bleWriteCharacteristicUuid: string
+  sppServiceClassId: string
+  sppBaudRate: number
+  paperWidth: number
+  dotsPerLine: number
+  charactersPerLine: number
+  useRasterization: boolean
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: 'Unauthorized' }
+
+  const { error } = await supabase.from('store_settings').update({
+    printer_transport: config.transport,
+    printer_ble_service_uuid: config.bleServiceUuid,
+    printer_ble_characteristic_uuid: config.bleWriteCharacteristicUuid,
+    printer_spp_service_class_uuid: config.sppServiceClassId,
+    printer_spp_baud_rate: config.sppBaudRate,
+    printer_paper_width: config.paperWidth,
+    printer_dots_per_line: config.dotsPerLine,
+    printer_characters_per_line: config.charactersPerLine,
+    printer_use_rasterization: config.useRasterization,
+    updated_at: new Date().toISOString()
+  }).eq('id', 1)
+
+  if (error) return { success: false, error: error.message }
+  
+  revalidatePath('/settings')
+  revalidatePath('/pos')
   return { success: true }
 }

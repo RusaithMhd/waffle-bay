@@ -13,11 +13,14 @@ export interface ReceiptData {
   receipt_id: string
   kot_number?: number
   business_date?: string
+  table_number?: string
   created_at: string
   subtotal: number
   tax: number
   discount: number
   total: number
+  discount_type?: 'percentage' | 'amount'
+  discount_value?: number
   items: Array<{
     name: string
     quantity: number
@@ -54,25 +57,18 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
       if (manager.getState() !== 'CONNECTED') {
         toast.loading('Connecting to XP-E200L...', { id: toastId });
         
-        // Load config from localStorage or fallback to defaults
+        // Load config from global settings (with defaults fallback)
         let config: PrinterConfig = {
-          transport: 'spp',
-          bleServiceUuid: '0000fff0-0000-1000-8000-00805f9b34fb',
-          bleWriteCharacteristicUuid: '0000fff1-0000-1000-8000-00805f9b34fb',
-          sppServiceClassId: '00001101-0000-1000-8000-00805f9b34fb',
-          sppBaudRate: 9600,
-          paperWidth: 80,
-          dotsPerLine: 576,
-          charactersPerLine: 48,
-          useRasterization: true,
+          transport: settings.printer_transport || 'spp',
+          bleServiceUuid: settings.printer_ble_service_uuid || '0000fff0-0000-1000-8000-00805f9b34fb',
+          bleWriteCharacteristicUuid: settings.printer_ble_characteristic_uuid || '0000fff1-0000-1000-8000-00805f9b34fb',
+          sppServiceClassId: settings.printer_spp_service_class_uuid || '00001101-0000-1000-8000-00805f9b34fb',
+          sppBaudRate: settings.printer_spp_baud_rate || 9600,
+          paperWidth: settings.printer_paper_width || 80,
+          dotsPerLine: settings.printer_dots_per_line || 576,
+          charactersPerLine: settings.printer_characters_per_line || 48,
+          useRasterization: settings.printer_use_rasterization !== undefined ? settings.printer_use_rasterization : true,
         };
-        
-        const saved = localStorage.getItem('waffle_bay_printer_config');
-        if (saved) {
-          try {
-            config = { ...config, ...JSON.parse(saved) };
-          } catch (e) {}
-        }
         
         const connected = await manager.connect(config);
         if (!connected) {
@@ -88,11 +84,14 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
         receipt_id: data.receipt_id,
         kot_number: data.kot_number,
         business_date: data.business_date,
+        table_number: data.table_number,
         created_at: data.created_at,
         subtotal: data.subtotal,
         tax: data.tax,
         discount: data.discount,
         total: data.total,
+        discount_type: data.discount_type,
+        discount_value: data.discount_value,
         items: data.items,
         payments: data.payments,
         offline: data.offline,
@@ -107,15 +106,15 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
       };
 
       let activeConfig = manager.getActiveConfig() || {
-        transport: 'spp' as const,
-        bleServiceUuid: '0000fff0-0000-1000-8000-00805f9b34fb',
-        bleWriteCharacteristicUuid: '0000fff1-0000-1000-8000-00805f9b34fb',
-        sppServiceClassId: '00001101-0000-1000-8000-00805f9b34fb',
-        sppBaudRate: 9600,
-        paperWidth: 80,
-        dotsPerLine: 576,
-        charactersPerLine: 48,
-        useRasterization: true,
+        transport: settings.printer_transport || 'spp',
+        bleServiceUuid: settings.printer_ble_service_uuid || '0000fff0-0000-1000-8000-00805f9b34fb',
+        bleWriteCharacteristicUuid: settings.printer_ble_characteristic_uuid || '0000fff1-0000-1000-8000-00805f9b34fb',
+        sppServiceClassId: settings.printer_spp_service_class_uuid || '00001101-0000-1000-8000-00805f9b34fb',
+        sppBaudRate: settings.printer_spp_baud_rate || 9600,
+        paperWidth: settings.printer_paper_width || 80,
+        dotsPerLine: settings.printer_dots_per_line || 576,
+        charactersPerLine: settings.printer_characters_per_line || 48,
+        useRasterization: settings.printer_use_rasterization !== undefined ? settings.printer_use_rasterization : true,
       };
 
       const bytes = buildReceiptBytes(printJob, activeConfig, storeProfile);
@@ -224,6 +223,9 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
             
             <div className="text-xs text-gray-700 mt-3 pt-3 border-t border-dashed border-gray-300 space-y-1">
               <p className="font-bold text-[14px]">Invoice: {data.receipt_id}</p>
+              {data.table_number && (
+                <p className="font-bold text-[14px]">Table: {data.table_number}</p>
+              )}
               <p>
                 Business Date:{' '}
                 <span className="font-semibold">
@@ -273,7 +275,11 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
             </div>
             {data.discount > 0 && (
               <div className="flex justify-between text-green-600">
-                <span>Discount</span>
+                <span>
+                  Discount {data.discount_type === 'percentage' 
+                    ? `(${data.discount_value}%)` 
+                    : `(${settings.currency_symbol}${data.discount_value})`}
+                </span>
                 <span>-{settings.currency_symbol} {data.discount.toFixed(2)}</span>
               </div>
             )}

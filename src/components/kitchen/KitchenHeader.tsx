@@ -15,7 +15,6 @@ export function KitchenHeader({ activeOrderCount, connectionStatus, onRefresh }:
   const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => {
-    // Set immediately on mount (client only — avoids SSR mismatch)
     setNow(new Date())
     const interval = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(interval)
@@ -23,33 +22,33 @@ export function KitchenHeader({ activeOrderCount, connectionStatus, onRefresh }:
 
   const timeStr = now ? now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'
 
-  const handleSignOut = async () => {
-    await logout()
-  }
-
   return (
-    <div className="bg-white/60 backdrop-blur-md border-b border-white/50 px-4 py-3 flex items-center justify-between shrink-0 z-20 shadow-sm">
-      {/* Left: Brand + Screen Label */}
-      <div className="flex items-center space-x-3">
-        <Link href="/pos" className="w-9 h-9 bg-[#FF6500] rounded-lg flex items-center justify-center shrink-0 hover:bg-[#e65a00] transition-colors shadow-sm" title="Back to POS">
-          <Store className="w-5 h-5 text-white" />
+    <div className="bg-white/70 backdrop-blur-md border-b border-white/50 px-3 sm:px-4 py-2.5 flex items-center justify-between shrink-0 z-20 shadow-sm">
+      {/* Left: Brand */}
+      <div className="flex items-center space-x-2 sm:space-x-3">
+        <Link
+          href="/pos"
+          className="w-8 h-8 sm:w-9 sm:h-9 bg-[#FF6500] rounded-lg flex items-center justify-center shrink-0 hover:bg-[#e65a00] active:scale-95 transition-all shadow-sm"
+          title="Back to POS"
+        >
+          <Store className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
         </Link>
-        <div>
-          <div className="text-[11px] font-bold tracking-widest text-[#FF6500] uppercase leading-none">Waffle Bay</div>
-          <div className="text-[18px] font-black text-slate-900 leading-tight tracking-tight">KITCHEN</div>
+        <div className="leading-none">
+          <div className="text-[9px] sm:text-[10px] font-bold tracking-widest text-[#FF6500] uppercase">Waffle Bay</div>
+          <div className="text-[15px] sm:text-[18px] font-black text-slate-900 tracking-tight">KITCHEN</div>
         </div>
       </div>
 
-      {/* Right: Status + Time + Refresh */}
-      <div className="flex items-center space-x-3">
-        {/* Active orders badge */}
-        <div className="hidden sm:flex items-center bg-white/80 border border-slate-200/60 rounded-lg px-3 py-1.5 shadow-sm">
-          <span className="text-[13px] font-bold text-slate-900">{activeOrderCount}</span>
-          <span className="text-[11px] text-slate-500 ml-1">active</span>
+      {/* Right */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5">
+        {/* Active orders badge — always visible, small on mobile */}
+        <div className="flex items-center gap-1 bg-orange-50 border border-orange-100 rounded-lg px-2 py-1 shadow-sm">
+          <span className="text-[14px] sm:text-[15px] font-black text-[#FF6500]">{activeOrderCount}</span>
+          <span className="text-[9px] sm:text-[11px] text-orange-500 font-semibold hidden xs:block">active</span>
         </div>
 
-        {/* Connection status */}
-        <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold shadow-sm border ${
+        {/* Connection dot */}
+        <div className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border shadow-sm ${
           connectionStatus === 'ONLINE'
             ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
             : connectionStatus === 'SYNCING'
@@ -69,22 +68,25 @@ export function KitchenHeader({ activeOrderCount, connectionStatus, onRefresh }:
         </div>
 
         {/* Time */}
-        <div suppressHydrationWarning className="text-[15px] font-bold text-slate-900 tabular-nums bg-white/60 px-3 py-1.5 rounded-lg border border-white/50 shadow-sm">{timeStr}</div>
+        <div suppressHydrationWarning className="text-[13px] sm:text-[15px] font-bold text-slate-900 tabular-nums bg-white/60 px-2 sm:px-3 py-1.5 rounded-lg border border-white/50 shadow-sm">
+          {timeStr}
+        </div>
 
         {/* Refresh */}
         <button
           onClick={onRefresh}
-          className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/80 border border-transparent hover:border-slate-200/60 transition-all shadow-sm"
+          className="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/80 border border-transparent hover:border-slate-200/60 active:scale-90 transition-all"
           aria-label="Refresh orders"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
 
-        {/* Logout */}
+        {/* Logout - hidden on mobile, visible sm+ */}
         <button
-          onClick={handleSignOut}
-          className="p-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-100 transition-all shadow-sm"
-          aria-label="Sign Out"
+          onClick={async () => { await logout() }}
+          className="hidden sm:flex p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 border border-transparent hover:border-red-100 active:scale-90 transition-all"
+          aria-label="Sign out"
+          title="Sign out"
         >
           <LogOut className="w-4 h-4" />
         </button>

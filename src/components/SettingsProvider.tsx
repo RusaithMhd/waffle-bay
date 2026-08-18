@@ -11,6 +11,16 @@ export interface StoreSettings {
   receipt_header: string
   receipt_footer: string
   timezone?: string
+  enable_discount: boolean
+  printer_transport?: 'ble' | 'spp'
+  printer_ble_service_uuid?: string
+  printer_ble_characteristic_uuid?: string
+  printer_spp_service_class_uuid?: string
+  printer_spp_baud_rate?: number
+  printer_paper_width?: number
+  printer_dots_per_line?: number
+  printer_characters_per_line?: number
+  printer_use_rasterization?: boolean
 }
 
 const SettingsContext = createContext<StoreSettings | null>(null)

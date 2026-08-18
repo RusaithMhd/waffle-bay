@@ -11,12 +11,13 @@
 
 // ── Role Names ────────────────────────────────────────────────────────────────
 
-export type AppRole = 'admin' | 'manager' | 'cashier' | 'chef'
+export type AppRole = 'admin' | 'manager' | 'cashier' | 'waiter' | 'chef'
 
 export const ROLES = {
   ADMIN:   'admin',
   MANAGER: 'manager',
   CASHIER: 'cashier',
+  WAITER:  'waiter',
   CHEF:    'chef',
 } as const
 
@@ -26,6 +27,7 @@ export type Permission =
   | '*'               // admin wildcard
   | 'dashboard'
   | 'pos'
+  | 'pos.discount'
   | 'kitchen'
   | 'products.view'
   | 'products.manage'
@@ -44,6 +46,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
   manager: [
     'dashboard',
     'pos',
+    'pos.discount',
     'kitchen',
     'products.view',
     'products.manage',
@@ -57,6 +60,10 @@ export const ROLE_PERMISSIONS: Record<AppRole, Permission[]> = {
     'pos',
     'shifts',
     'kitchen',
+  ],
+
+  waiter: [
+    'pos',
   ],
 
   chef: [
@@ -84,6 +91,7 @@ export const ROLE_HOME: Record<AppRole, string> = {
   admin:   '/',
   manager: '/',
   cashier: '/pos',
+  waiter:  '/pos',
   chef:    '/kitchen',
 }
 
@@ -128,5 +136,6 @@ export const ROLE_DISPLAY: Record<AppRole, { label: string; color: string }> = {
   admin:   { label: 'Admin',   color: 'bg-purple-100 text-purple-700' },
   manager: { label: 'Manager', color: 'bg-blue-100   text-blue-700'   },
   cashier: { label: 'Cashier', color: 'bg-green-100  text-green-700'  },
+  waiter:  { label: 'Waiter',  color: 'bg-orange-100 text-orange-700' },
   chef:    { label: 'Chef',    color: 'bg-amber-100  text-amber-700'  },
 }

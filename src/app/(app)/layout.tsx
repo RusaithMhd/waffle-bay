@@ -32,7 +32,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     currency_symbol: 'Rs.',
     tax_rate: 0,
     receipt_header: 'Welcome to Waffle Bay!',
-    receipt_footer: 'Thank you for your business!'
+    receipt_footer: 'Thank you for your business!',
+    enable_discount: true,
+    printer_transport: 'spp' as const,
+    printer_ble_service_uuid: '0000fff0-0000-1000-8000-00805f9b34fb',
+    printer_ble_characteristic_uuid: '0000fff1-0000-1000-8000-00805f9b34fb',
+    printer_spp_service_class_uuid: '00001101-0000-1000-8000-00805f9b34fb',
+    printer_spp_baud_rate: 9600,
+    printer_paper_width: 80,
+    printer_dots_per_line: 576,
+    printer_characters_per_line: 48,
+    printer_use_rasterization: true
   }
 
   return (

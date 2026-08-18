@@ -29,6 +29,7 @@ import {
 import { buildReceiptBytes } from '@/lib/printer/receipt-builder';
 import { EscPosBuilder } from '@/lib/printer/escpos';
 import { rasterizeText } from '@/lib/printer/rasterizer';
+import { updatePrinterSettings } from '@/app/actions/settings';
 
 export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
   const [compat, setCompat] = useState({
@@ -55,17 +56,31 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
     useRasterization: true,
   });
 
-  // Load configuration from local storage on mount
+  // Load configuration from database or local storage on mount
   useEffect(() => {
     setCompat(checkBrowserCompatibility());
 
-    const saved = localStorage.getItem('waffle_bay_printer_config');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setConfig(prev => ({ ...prev, ...parsed }));
-      } catch (e) {
-        console.error('Error loading printer config', e);
+    if (storeSettings && storeSettings.printer_transport) {
+      setConfig({
+        transport: storeSettings.printer_transport,
+        bleServiceUuid: storeSettings.printer_ble_service_uuid || '0000fff0-0000-1000-8000-00805f9b34fb',
+        bleWriteCharacteristicUuid: storeSettings.printer_ble_characteristic_uuid || '0000fff1-0000-1000-8000-00805f9b34fb',
+        sppServiceClassId: storeSettings.printer_spp_service_class_uuid || '00001101-0000-1000-8000-00805f9b34fb',
+        sppBaudRate: Number(storeSettings.printer_spp_baud_rate || 9600),
+        paperWidth: Number(storeSettings.printer_paper_width || 80),
+        dotsPerLine: Number(storeSettings.printer_dots_per_line || 576),
+        charactersPerLine: Number(storeSettings.printer_characters_per_line || 48),
+        useRasterization: storeSettings.printer_use_rasterization !== undefined ? storeSettings.printer_use_rasterization : true,
+      });
+    } else {
+      const saved = localStorage.getItem('waffle_bay_printer_config');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setConfig(prev => ({ ...prev, ...parsed }));
+        } catch (e) {
+          console.error('Error loading printer config', e);
+        }
       }
     }
 
@@ -87,7 +102,7 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
       manager.removeStateListener(handleStateChange);
       manager.removeLogListener(handleLog);
     };
-  }, []);
+  }, [storeSettings]);
 
   // Scroll logs to bottom
   useEffect(() => {
@@ -97,9 +112,17 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
   }, [logs]);
 
   // Save config
-  const saveConfig = (newConfig: PrinterConfig) => {
+  const saveConfig = async (newConfig: PrinterConfig) => {
     setConfig(newConfig);
     localStorage.setItem('waffle_bay_printer_config', JSON.stringify(newConfig));
+    
+    const toastId = toast.loading('Saving printer settings globally...');
+    const res = await updatePrinterSettings(newConfig);
+    if (res.success) {
+      toast.success('Printer setup updated for all users!', { id: toastId });
+    } else {
+      toast.error(`Failed to save globally: ${res.error}`, { id: toastId });
+    }
   };
 
   const handleConnect = async () => {

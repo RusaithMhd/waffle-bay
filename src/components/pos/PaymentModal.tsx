@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, CreditCard, Banknote, HelpCircle, QrCode, Building, CheckCircle2, DollarSign } from 'lucide-react'
 import { usePosStore } from '@/stores/usePosStore'
 import { useSettings } from '@/components/SettingsProvider'
-import { processCheckout, CheckoutPayload } from '@/app/actions/checkout'
+import { processCheckout, processPayment, CheckoutPayload } from '@/app/actions/checkout'
 import { db } from '@/lib/db'
+import { hasPermission, AppRole } from '@/lib/rbac'
 
 type PaymentMethod = 'CASH' | 'CARD' | 'QR' | 'BANK_TRANSFER'
 
@@ -17,12 +18,88 @@ interface PaymentEntry {
 interface PaymentModalProps {
   onClose: () => void
   onSuccess: (receiptData: any) => void
+  userRole?: string | null
+  activeOrder?: any
 }
 
-export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
-  const { cart, getSubtotal, getTaxAmount, getDiscountAmount, getTotal, clearCart, orderType } = usePosStore()
+export function PaymentModal({ onClose, onSuccess, userRole, activeOrder }: PaymentModalProps) {
+  const { cart, getSubtotal, getTaxAmount, getDiscountAmount, getTotal, clearCart, orderType, tableNumber, discountType, discountValue, setDiscount, setDiscountType, activeOrderId } = usePosStore()
   const settings = useSettings()
   const total = getTotal()
+
+  const showDiscountControl = settings.enable_discount && hasPermission(userRole as AppRole, 'pos.discount')
+  const [discountInput, setDiscountInput] = useState(discountValue > 0 ? String(discountValue) : '')
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [isFocused, setIsFocused] = useState(false)
+
+  useEffect(() => {
+    if (!isFocused) {
+      setDiscountInput(discountValue > 0 ? String(discountValue) : '')
+    }
+  }, [discountValue, isFocused])
+
+  const subtotal = getSubtotal()
+
+  useEffect(() => {
+    if (discountValue > 0) {
+      if (discountType === 'percentage') {
+        if (discountValue > 100) {
+          setDiscountError('Percentage discount cannot exceed 100%')
+        } else {
+          setDiscountError(null)
+        }
+      } else {
+        if (discountValue > subtotal) {
+          setDiscountError('Discount cannot be greater than the order subtotal.')
+        } else {
+          setDiscountError(null)
+        }
+      }
+    } else if (discountInput !== '' && Number(discountInput) > 0) {
+      const val = Number(discountInput)
+      if (discountType === 'amount' && val > subtotal) {
+        setDiscountError('Discount cannot be greater than the order subtotal.')
+      } else {
+        setDiscountError(null)
+      }
+    } else {
+      setDiscountError(null)
+    }
+  }, [subtotal, discountValue, discountType, discountInput])
+
+  const handleDiscountChange = (valStr: string) => {
+    setDiscountInput(valStr)
+    const val = Number(valStr)
+    if (valStr === '') {
+      setDiscount(0)
+      setDiscountError(null)
+      return
+    }
+
+    if (isNaN(val) || val < 0) {
+      setDiscountError('Invalid discount value')
+      setDiscount(0)
+      return
+    }
+
+    if (discountType === 'percentage') {
+      if (val > 100) {
+        setDiscountError('Percentage discount cannot exceed 100%')
+        setDiscount(0)
+      } else {
+        setDiscountError(null)
+        setDiscount(val)
+      }
+    } else {
+      if (val > subtotal) {
+        setDiscountError('Discount cannot be greater than the order subtotal.')
+        setDiscount(0)
+      } else {
+        setDiscountError(null)
+        setDiscount(val)
+      }
+    }
+  }
 
   const [payments, setPayments] = useState<PaymentEntry[]>([])
   const [currentInput, setCurrentInput] = useState<string>('')
@@ -59,7 +136,10 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
       tax: getTaxAmount(),
       discount: getDiscountAmount(),
       total: total,
+      discount_type: discountType,
+      discount_value: discountValue,
       order_type: orderType,
+      table_number: tableNumber,
       idempotency_key: idempotencyKey,
       items: cart.map(item => ({
         product_id: item.product.id,
@@ -83,7 +163,16 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
         throw new Error('Offline')
       }
       
-      const res = await processCheckout(payload)
+      let res
+      if (activeOrderId) {
+        res = await processPayment({
+          order_id: activeOrderId,
+          payments: payments
+        })
+      } else {
+        res = await processCheckout(payload)
+      }
+      
       setIsProcessing(false)
 
       if (res.success) {
@@ -93,10 +182,12 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
           kot_number: res.data.kot_number,
           business_date: res.data.business_date,
           created_at: new Date().toISOString(),
-          subtotal: payload.subtotal,
-          tax: payload.tax,
-          discount: payload.discount,
-          total: payload.total,
+          subtotal: activeOrderId ? Number(activeOrder?.subtotal || payload.subtotal) : payload.subtotal,
+          tax: activeOrderId ? Number(activeOrder?.tax || payload.tax) : payload.tax,
+          discount: activeOrderId ? Number(activeOrder?.discount || payload.discount) : payload.discount,
+          total: activeOrderId ? Number(activeOrder?.total || payload.total) : payload.total,
+          discount_type: activeOrderId ? (activeOrder?.discount_type || discountType) : payload.discount_type,
+          discount_value: activeOrderId ? Number(activeOrder?.discount_value || discountValue) : payload.discount_value,
           items: cart.map(i => ({
             name: i.product.name,
             quantity: i.quantity,
@@ -104,10 +195,12 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
             notes: i.note,
             modifiers: i.modifiers.map(m => ({ name: m.name, price: m.price }))
           })),
-          payments: payload.payments,
+          payments: payments,
           offline: false
         }
-        clearCart()
+        if (!activeOrderId) {
+          clearCart()
+        }
         onSuccess(receiptData)
       } else {
         setError(res.error || 'Checkout failed')
@@ -128,6 +221,8 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
         tax: payload.tax,
         discount: payload.discount,
         total: payload.total,
+        discount_type: payload.discount_type,
+        discount_value: payload.discount_value,
         items: cart.map(i => ({
           name: i.product.name,
           quantity: i.quantity,
@@ -138,7 +233,9 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
         payments: payload.payments,
         offline: true
       }
-      clearCart()
+      if (!activeOrderId) {
+        clearCart()
+      }
       onSuccess(receiptData)
     }
   }
@@ -156,10 +253,83 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
           </div>
           
           <div className="p-6 md:flex-1 md:overflow-y-auto">
-            <div className="bg-orange-50 p-6 flex flex-col items-center justify-center rounded-2xl mb-6">
-              <p className="text-orange-600 font-semibold mb-1">Total Amount</p>
-              <p className="text-4xl font-bold text-gray-900">{settings.currency_symbol} {total.toFixed(2)}</p>
+            <div className="bg-orange-50 p-6 flex flex-col rounded-2xl mb-6 space-y-2.5">
+              <div className="flex justify-between text-sm font-semibold text-gray-600 border-b border-orange-100 pb-2">
+                <span>Subtotal</span>
+                <span>{settings.currency_symbol} {getSubtotal().toFixed(2)}</span>
+              </div>
+              {getDiscountAmount() > 0 && (
+                <div className="flex justify-between text-sm text-green-700 font-bold">
+                  <span>
+                    Discount {discountType === 'percentage' ? `(${discountValue}%)` : `(${settings.currency_symbol}${discountValue})`}
+                  </span>
+                  <span>-{settings.currency_symbol} {getDiscountAmount().toFixed(2)}</span>
+                </div>
+              )}
+              {getTaxAmount() > 0 && (
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Tax</span>
+                  <span>{settings.currency_symbol} {getTaxAmount().toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t border-orange-100/50">
+                <span className="text-orange-600 font-bold">Total Amount</span>
+                <span className="text-3xl font-black text-gray-900">{settings.currency_symbol} {total.toFixed(2)}</span>
+              </div>
             </div>
+
+            {showDiscountControl && (
+              <div className="mb-6 p-4 bg-white border border-[#E5E7EB] rounded-2xl shadow-sm">
+                <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wide">
+                  Discount
+                </label>
+                <div className="flex border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm bg-white focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500 transition-all">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={discountInput}
+                    onChange={(e) => handleDiscountChange(e.target.value)}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    placeholder="0"
+                    className="flex-1 min-w-0 p-3 text-sm text-[#111827] outline-none font-bold bg-transparent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <select
+                    value={discountType}
+                    onChange={(e) => {
+                      const nextType = e.target.value as 'percentage' | 'amount'
+                      let nextValue = 0
+                      const currentVal = Number(discountInput)
+                      if (!isNaN(currentVal) && currentVal > 0 && subtotal > 0) {
+                        if (nextType === 'amount') {
+                          nextValue = Number(((subtotal * currentVal) / 100).toFixed(2))
+                        } else {
+                          nextValue = Number(((currentVal / subtotal) * 100).toFixed(2))
+                        }
+                      }
+                      setDiscountType(nextType)
+                      if (nextValue > 0) {
+                        setDiscount(nextValue)
+                        setDiscountInput(String(nextValue))
+                      } else {
+                        setDiscountInput('')
+                      }
+                      setDiscountError(null)
+                    }}
+                    className="px-3 border-l border-gray-100 text-xs font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 outline-none cursor-pointer transition-colors select-none"
+                  >
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="amount">Amount</option>
+                  </select>
+                </div>
+                {discountError && (
+                  <p className="text-[12px] font-bold text-red-500 mt-1.5 leading-snug">
+                    {discountError}
+                  </p>
+                )}
+              </div>
+            )}
 
             <h3 className="font-semibold text-gray-900 mb-4">Payments Applied</h3>
             {payments.length === 0 ? (
@@ -261,7 +431,7 @@ export function PaymentModal({ onClose, onSuccess }: PaymentModalProps) {
             {/* Final Action */}
             <button
               onClick={handleCheckout}
-              disabled={!isFullyPaid || isProcessing}
+              disabled={!isFullyPaid || isProcessing || !!discountError}
               className="w-full mt-auto bg-orange-500 text-white text-xl font-bold py-6 rounded-2xl shadow-lg hover:bg-orange-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {isProcessing ? 'Processing...' : (

@@ -43,6 +43,8 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
       tax: Number(order.tax),
       discount: Number(order.discount),
       total: Number(order.total),
+      discount_type: order.discount_type,
+      discount_value: order.discount_value ? Number(order.discount_value) : 0,
       items: order.order_items.map((i: any) => ({
         name: i.product_name_snapshot,
         quantity: i.quantity,

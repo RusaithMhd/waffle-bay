@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { updateUserRole }  from '@/app/actions/settings'
 import { createStaffUser, updateStaffUser, deleteStaffUser, updateStaffPassword } from '@/app/actions/staff'
-import { UserCog, Plus, X, Eye, EyeOff, ChefHat, Store, Loader2, CheckCircle, Edit2, Trash2, Key } from 'lucide-react'
+import { UserCog, Plus, X, Eye, EyeOff, ChefHat, Store, Loader2, CheckCircle, Edit2, Trash2, Key, Coffee } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
 
@@ -23,12 +23,14 @@ interface Role {
 const ROLE_ICONS: Record<string, React.ReactNode> = {
   kitchen: <ChefHat className="w-4 h-4" />,
   pos:     <Store className="w-4 h-4" />,
+  waiter:  <Coffee className="w-4 h-4" />,
 }
 
 const ROLE_COLORS: Record<string, string> = {
   kitchen: 'bg-amber-100 text-amber-700',
   pos:     'bg-blue-100 text-blue-700',
   admin:   'bg-purple-100 text-purple-700',
+  waiter:  'bg-orange-100 text-orange-700',
 }
 
 export function StaffTab({ staff, roles }: { staff: Profile[], roles: Role[] }) {
