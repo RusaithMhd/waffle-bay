@@ -17,12 +17,13 @@ export interface CheckoutPayload {
   table_number?: string
   idempotency_key: string
   items: {
-    product_id: string
+    product_id?: string | null
     product_name_snapshot: string
     unit_price_snapshot: number
     quantity: number
     subtotal: number
     notes?: string
+    metadata?: any
     modifiers: {
       modifier_id: string
       modifier_name_snapshot: string
