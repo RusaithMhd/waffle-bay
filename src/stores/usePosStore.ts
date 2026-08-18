@@ -11,6 +11,10 @@ export interface CartItem {
   note?: string
   customPrice?: number
   saved?: boolean
+  metadata?: {
+    type: 'half_and_half';
+    halves: { product_id: string; product_name: string }[];
+  }
 }
 
 export interface HeldOrder {
@@ -38,7 +42,7 @@ interface PosState {
   setActiveCategory: (id: string | null) => void
   setOrderType: (type: 'DINE_IN' | 'TAKEAWAY') => void
   setTableNumber: (val: string) => void
-  addToCart: (product: Product, modifiers: Modifier[], quantity: number, note?: string) => void
+  addToCart: (product: Product, modifiers: Modifier[], quantity: number, note?: string, metadata?: CartItem['metadata']) => void
   updateQuantity: (itemId: string, delta: number) => void
   updateCartItemDetails: (itemId: string, note?: string, customPrice?: number) => void
   removeFromCart: (itemId: string) => void
@@ -158,43 +162,51 @@ export const usePosStore = create<PosState>((set, get) => ({
     })
   },
 
-  addToCart: (product, modifiers, quantity, note) => {
-    set((state) => {
-      // Create a unique hash for the product + modifiers combo to group same items
-      const modsHash = modifiers.map(m => m.id).sort().join(',')
-      const itemHash = `${product.id}-${modsHash}-${note || ''}`
-      
-      const existingItemIndex = state.cart.findIndex(
-        i => {
-          const iHash = `${i.product.id}-${i.modifiers.map(m => m.id).sort().join(',')}-${i.note || ''}`
-          return iHash === itemHash && i.customPrice === undefined
+  addToCart: (product, modifiers, quantity, note, metadata) => set((state) => {
+    const existingItemIndex = state.cart.findIndex(
+      (item) => {
+        if (item.product.id !== product.id) return false
+        if (!areModifiersEqual(item.modifiers, modifiers)) return false
+        if (item.note !== note) return false
+        if (item.saved) return false
+        
+        // Handle Half & Half metadata equality
+        if (item.metadata?.type === 'half_and_half' && metadata?.type === 'half_and_half') {
+           const idsA = item.metadata.halves.map(h => h.product_id).sort().join(',')
+           const idsB = metadata.halves.map(h => h.product_id).sort().join(',')
+           if (idsA !== idsB) return false
+        } else if (item.metadata?.type !== metadata?.type) {
+           return false
         }
+
+        return true
+      }
+    )
+
+    if (existingItemIndex > -1) {
+      const newCart = [...state.cart]
+      newCart[existingItemIndex].quantity += quantity
+      newCart[existingItemIndex].itemTotal = calculateItemTotal(
+        newCart[existingItemIndex].product,
+        newCart[existingItemIndex].modifiers,
+        newCart[existingItemIndex].quantity,
+        newCart[existingItemIndex].customPrice
       )
+      return { cart: newCart }
+    }
 
-      if (existingItemIndex !== -1) {
-        // Increase quantity of existing identical item
-        const newCart = [...state.cart]
-        const existingItem = newCart[existingItemIndex]
-        const newQuantity = existingItem.quantity + quantity
-        newCart[existingItemIndex] = {
-          ...existingItem,
-          quantity: newQuantity,
-          itemTotal: calculateItemTotal(product, modifiers, newQuantity, existingItem.customPrice)
-        }
-        return { cart: newCart }
-      }
+    const newItem: CartItem = {
+      id: Date.now().toString() + Math.random().toString(36).substring(7),
+      product,
+      modifiers,
+      quantity,
+      itemTotal: calculateItemTotal(product, modifiers, quantity),
+      note,
+      metadata
+    }
 
-      const newItem: CartItem = {
-        id: Date.now().toString() + Math.random().toString(36).substring(7),
-        product,
-        modifiers,
-        quantity,
-        itemTotal: calculateItemTotal(product, modifiers, quantity),
-        note
-      }
-      return { cart: [...state.cart, newItem] }
-    })
-  },
+    return { cart: [...state.cart, newItem] }
+  }),
 
   updateQuantity: (itemId, delta) => {
     set((state) => {

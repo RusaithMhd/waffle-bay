@@ -15,6 +15,7 @@ export async function updateStoreSettings(data: {
   enable_discount: boolean
   phone_number?: string
   logo_url?: string
+  half_and_half_surcharge?: number
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,6 +31,7 @@ export async function updateStoreSettings(data: {
     enable_discount: data.enable_discount,
     phone_number: data.phone_number,
     logo_url: data.logo_url,
+    half_and_half_surcharge: data.half_and_half_surcharge,
     updated_at: new Date().toISOString()
   }).eq('id', 1)
 
