@@ -55,6 +55,14 @@ export default async function ProductsPage({
           <div className="w-full sm:w-64">
             <ProductSearch initialQuery={searchQuery} />
           </div>
+          <a
+            href="/api/export?type=products"
+            id="export-products-btn"
+            className="bg-green-700 hover:bg-green-800 text-white px-4 h-[42px] rounded-lg shadow-sm flex items-center space-x-2 font-bold transition-colors w-full sm:w-auto justify-center text-sm"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Export (.xlsx)</span>
+          </a>
           <div className="w-full sm:w-auto shrink-0">
             <AddProductButton categories={categories || []} />
           </div>
