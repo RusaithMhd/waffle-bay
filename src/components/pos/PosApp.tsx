@@ -721,14 +721,14 @@ export function PosApp({
         setActiveOrder((prev: any) => {
           if (!prev) return prev
 
-          // Check if fulfillment_status transitioned to READY
-          if (prev.fulfillment_status !== 'READY' && updated.fulfillment_status === 'READY') {
-            if (readyAudioRef.current) {
-              readyAudioRef.current.currentTime = 0
-              readyAudioRef.current.volume = 0.85
-              readyAudioRef.current.play().catch(e => console.warn('Ready chime play blocked:', e))
-            }
-          }
+          // Let GlobalOrderReadyListener handle the sound
+          // if (prev.fulfillment_status !== 'READY' && updated.fulfillment_status === 'READY') {
+          //   if (readyAudioRef.current) {
+          //     readyAudioRef.current.currentTime = 0
+          //     readyAudioRef.current.volume = 0.85
+          //     readyAudioRef.current.play().catch(e => console.warn('Ready chime play blocked:', e))
+          //   }
+          // }
 
           return {
             ...prev,
@@ -743,35 +743,6 @@ export function PosApp({
       supabase.removeChannel(channel)
     }
   }, [activeOrderId])
-
-  // Global order ready listener for waitstaff/cashiers
-  useEffect(() => {
-    const supabase = createClient()
-    const globalChannel = supabase
-      .channel('global-order-ready')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
-        const updated = payload.new
-        if (updated.fulfillment_status === 'READY' && !notifiedOrdersRef.current.has(updated.id)) {
-          notifiedOrdersRef.current.add(updated.id)
-          
-          if (readyAudioRef.current) {
-            readyAudioRef.current.currentTime = 0
-            readyAudioRef.current.volume = 0.85
-            readyAudioRef.current.play().catch(e => console.warn('Ready chime play blocked:', e))
-          }
-          
-          toast.success(
-            `Order #${updated.order_number} ${updated.table_number ? `(Table ${updated.table_number})` : ''} is READY!`, 
-            { duration: 6000, icon: '🛎️' }
-          )
-        }
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(globalChannel)
-    }
-  }, [])
 
   // Load unpaid orders when modal opens
   useEffect(() => {
@@ -1475,19 +1446,21 @@ export function PosApp({
               <div className="flex w-full sm:w-3/4 gap-3">
                 <button
                   onClick={handleAddWithModifiers}
-                  className="w-1/2 bg-orange-100 text-orange-700 hover:bg-orange-200 font-bold py-3.5 rounded-xl shadow-sm transition-all flex justify-center items-center active:scale-[0.98]"
+                  className={`${userRole === 'waiter' ? 'w-full' : 'w-1/2'} bg-orange-100 text-orange-700 hover:bg-orange-200 font-bold py-3.5 rounded-xl shadow-sm transition-all flex justify-center items-center active:scale-[0.98]`}
                 >
                   Add Item
                 </button>
-                <button
-                  onClick={() => {
-                    handleAddWithModifiers()
-                    handleCheckout()
-                  }}
-                  className="w-1/2 bg-[#FF6500] hover:bg-[#e65a00] text-white font-bold py-3.5 rounded-xl shadow-sm transition-all flex justify-center items-center active:scale-[0.98]"
-                >
-                  Add & Checkout
-                </button>
+                {userRole !== 'waiter' && (
+                  <button
+                    onClick={() => {
+                      handleAddWithModifiers()
+                      handleCheckout()
+                    }}
+                    className="w-1/2 bg-[#FF6500] hover:bg-[#e65a00] text-white font-bold py-3.5 rounded-xl shadow-sm transition-all flex justify-center items-center active:scale-[0.98]"
+                  >
+                    Add & Checkout
+                  </button>
+                )}
               </div>
             </div>
           </div>
