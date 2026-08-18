@@ -475,7 +475,8 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
                 <option value="ble">Bluetooth Low Energy (GATT / BLE)</option>
               </select>
               <p className="text-[11px] text-gray-400 mt-1">
-                Note: Desktop receipt printers typically run on Bluetooth Classic SPP.
+                Note: Use <strong>BLE</strong> on Android tablets (Web Serial is desktop-only).
+                On Bluetooth 4.2 devices, a full device list may appear — select your printer by name.
               </p>
             </div>
 

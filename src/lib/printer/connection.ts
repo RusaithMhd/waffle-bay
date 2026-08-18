@@ -154,7 +154,7 @@ export class PrinterConnectionManager {
 
     let device = null;
 
-    // 1. Try silent reconnection if supported
+    // 1. Try silent reconnection if supported (Chrome desktop only)
     if (nav.bluetooth && 'getDevices' in nav.bluetooth) {
       try {
         const approvedDevices = await nav.bluetooth.getDevices();
@@ -180,10 +180,28 @@ export class PrinterConnectionManager {
 
     // 2. If no approved device found, prompt the user
     if (!device) {
-      this.log('info', `Requesting BLE device with Service UUID: ${config.bleServiceUuid}`);
-      device = await nav.bluetooth.requestDevice({
-        filters: [{ services: [serviceUuid] }],
-      });
+      // Strategy 1: Filter by service UUID (works when printer advertises its service UUID)
+      this.log('info', `Requesting BLE device with Service UUID filter: ${config.bleServiceUuid}`);
+      try {
+        device = await nav.bluetooth.requestDevice({
+          filters: [{ services: [serviceUuid] }],
+        });
+      } catch (filterErr: any) {
+        // If user cancelled, re-throw immediately
+        if (filterErr.name === 'NotFoundError' || filterErr.message?.toLowerCase().includes('cancel')) {
+          throw filterErr;
+        }
+
+        // Strategy 2 (Android / BT 4.2 fallback): acceptAllDevices with optional service hint.
+        // Some printers (especially on Android / Bluetooth 4.2) don't advertise their service UUID
+        // in the BLE advertisement packet, causing the filter scan to return zero results.
+        // acceptAllDevices lets the user pick from the full BLE scan list.
+        this.log('warn', `Service UUID filter scan failed (${filterErr.message}). Falling back to full BLE scan — all nearby devices will be shown.`);
+        device = await nav.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: [serviceUuid],
+        });
+      }
     }
 
     this.bleDevice = device;

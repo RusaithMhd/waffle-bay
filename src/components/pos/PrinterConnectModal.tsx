@@ -122,7 +122,17 @@ export function PrinterConnectModal({
           {settings.printer_transport === 'spp' && (
             <div className="mt-4 flex items-start gap-2 bg-amber-50 text-amber-800 p-3 rounded-lg border border-amber-200 w-full text-xs">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>Ensure your printer is paired with this device in system Bluetooth settings first.</span>
+              <span>Web Serial (SPP) requires desktop Chrome. Ensure your printer is paired in system Bluetooth settings first.</span>
+            </div>
+          )}
+
+          {(settings.printer_transport === 'ble' || !settings.printer_transport) && (
+            <div className="mt-4 flex items-start gap-2 bg-blue-50 text-blue-800 p-3 rounded-lg border border-blue-200 w-full text-xs">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                On tablets (Android), all nearby Bluetooth devices may appear in the picker if the printer
+                doesn&apos;t broadcast its service UUID. Select your printer (e.g. <strong>XP-E200L</strong>) from the list.
+              </span>
             </div>
           )}
         </div>
