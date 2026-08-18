@@ -132,7 +132,12 @@ export const ALL_NAV_ITEMS: NavItem[] = [
 ]
 
 export function getNavItemsForRole(role: AppRole | null | undefined): NavItem[] {
-  return ALL_NAV_ITEMS.filter(item => hasPermission(role, item.permission))
+  return ALL_NAV_ITEMS.filter(item => {
+    // Admin already has Printer Settings as a tab inside /settings,
+    // so hide the cashier-only printer shortcut from their sidebar.
+    if (role === 'admin' && item.href === '/cashier-settings') return false
+    return hasPermission(role, item.permission)
+  })
 }
 
 // ── Role display config ───────────────────────────────────────────────────────
