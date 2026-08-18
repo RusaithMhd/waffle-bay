@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Product, Category, ModifierGroup, Modifier } from '@/types'
 import { usePosStore, CartItem } from '@/stores/usePosStore'
 import { hasPermission, AppRole } from '@/lib/rbac'
-import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon, LogOut, Edit2, Coffee, ShoppingBag, Settings, Clock } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, Check, Search, Menu, MoreVertical, Image as ImageIcon, LogOut, Edit2, Coffee, ShoppingBag, Settings, Clock, Printer } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { PaymentModal } from './PaymentModal'
 import { SyncService } from '@/services/sync'
@@ -18,7 +18,6 @@ import { createClient } from '@/lib/supabase/client'
 import { getBusinessDate } from '@/lib/dateUtils'
 import Link from 'next/link'
 import Image from 'next/image'
-import { PrinterConnectModal } from './PrinterConnectModal'
 
 const CartItemRow = ({
   item,
@@ -598,8 +597,6 @@ export function PosApp({
   const [kotAuditLogs, setKotAuditLogs] = useState<any[]>([])
   const [isKOTProcessing, setIsKOTProcessing] = useState(false)
 
-  // Printer Connect Modal
-  const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false)
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -1042,7 +1039,7 @@ export function PosApp({
     <div className="flex h-full bg-[#F8FAFC] text-[#111827] overflow-hidden font-sans">
       {!hasActiveShift && <ShiftBlocker />}
       <CloseShiftModal isOpen={isCloseShiftModalOpen} onClose={() => setIsCloseShiftModalOpen(false)} />
-      <PrinterConnectModal isOpen={isPrinterModalOpen} onClose={() => setIsPrinterModalOpen(false)} settings={settings} />
+
 
       {/* LEFT SIDE: CATALOG */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -1123,12 +1120,14 @@ export function PosApp({
                     </>
                   )}
                   <div className="h-px bg-[#E5E7EB] my-1" />
-                  <button
-                    onClick={() => { setShowMoreMenu(false); setIsPrinterModalOpen(true); }}
-                    className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors block"
+                  <Link
+                    href="/cashier-settings"
+                    onClick={() => setShowMoreMenu(false)}
+                    className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors flex items-center"
                   >
+                    <Printer className="w-4 h-4 mr-2 text-gray-400" />
                     Connect Printer
-                  </button>
+                  </Link>
                   <div className="h-px bg-[#E5E7EB] my-1" />
                   <button
                     onClick={handleLogout}
