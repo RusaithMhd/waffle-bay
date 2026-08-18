@@ -140,25 +140,21 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
   useEffect(() => {
     if (data && !printTriggered.current && autoPrint) {
       printTriggered.current = true
-      
-      // Allow DOM to render before calling print
-      setTimeout(() => {
-        window.print()
-        
-        // After print dialog closes, we want to close the receipt view
-        // Unfortunately there's no perfect way to know when print dialog closes across all browsers,
-        // but window.onafterprint works in most modern browsers.
-        const handleAfterPrint = () => {
-          onClose()
-          window.removeEventListener('afterprint', handleAfterPrint)
+
+      // If a printer is already connected, send directly via Bluetooth/USB.
+      // Otherwise silently skip — the user can press the Print button manually.
+      const manager = PrinterConnectionManager.getInstance()
+      const state = manager.getState()
+      if (state === 'CONNECTED' || state === 'COMPLETED' || state === 'IDLE') {
+        // Only auto-print if device was previously paired (has cached device/port)
+        const activeConfig = manager.getActiveConfig()
+        if (activeConfig) {
+          // Brief delay to let DOM paint first
+          setTimeout(() => handleBluetoothPrint(), 600)
         }
-        window.addEventListener('afterprint', handleAfterPrint)
-        
-        // Fallback for browsers that don't support afterprint well
-        setTimeout(onClose, 2000)
-      }, 500)
+      }
     }
-  }, [data, onClose])
+  }, [data])
 
   if (!data) return null
 
@@ -202,7 +198,7 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
               className="flex-1 px-4 py-2 bg-gray-50 text-gray-700 border border-gray-200 font-semibold text-xs rounded-xl hover:bg-gray-100 active:scale-95 transition-all shadow-sm flex items-center justify-center space-x-1"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Native Print</span>
+              <span>Web Print</span>
             </button>
           </div>
           
@@ -212,7 +208,7 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
             className="w-full px-4 py-2.5 bg-[#FF6500] hover:bg-[#e65a00] disabled:bg-orange-300 text-white font-semibold text-xs rounded-xl active:scale-[0.98] transition-all shadow-md flex items-center justify-center space-x-1.5"
           >
             <Bluetooth className="w-4 h-4" />
-            <span>{isPrinting ? 'Printing...' : 'Print via Bluetooth (XP-E200L)'}</span>
+            <span>{isPrinting ? 'Printing...' : 'Print via Bluetooth / USB'}</span>
           </button>
         </div>
 

@@ -1,4 +1,4 @@
-export type PrinterTransport = 'ble' | 'spp';
+export type PrinterTransport = 'ble' | 'spp' | 'usb';
 
 export type ConnectionState =
   | 'IDLE'

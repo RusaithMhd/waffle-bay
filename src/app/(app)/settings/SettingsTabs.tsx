@@ -13,8 +13,8 @@ export function SettingsTabs({ activeTab }: { activeTab: string }) {
   ]
 
   return (
-    <div className="border-b border-gray-200 overflow-x-auto hide-scrollbar">
-      <nav className="-mb-px flex space-x-4 md:space-x-8 min-w-max px-2 md:px-0">
+    <div className="border-b border-gray-200 w-full overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+      <nav className="-mb-px flex space-x-6 min-w-max">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id
           return (
@@ -22,7 +22,7 @@ export function SettingsTabs({ activeTab }: { activeTab: string }) {
               key={tab.id}
               href={`/settings?tab=${tab.id}`}
               className={`
-                group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm
+                group inline-flex items-center py-4 border-b-2 font-medium text-sm
                 ${isActive
                   ? 'border-orange-500 text-orange-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -31,7 +31,7 @@ export function SettingsTabs({ activeTab }: { activeTab: string }) {
             >
               <tab.icon
                 className={`
-                  -ml-0.5 mr-2 h-5 w-5
+                  mr-2 h-4 w-4 md:h-5 md:w-5
                   ${isActive ? 'text-orange-500' : 'text-gray-400 group-hover:text-gray-500'}
                 `}
               />

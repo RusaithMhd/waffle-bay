@@ -126,7 +126,7 @@ export async function updateUserRole(userId: string, roleId: string) {
 }
 
 export async function updatePrinterSettings(config: {
-  transport: 'ble' | 'spp'
+  transport: 'ble' | 'spp' | 'usb'
   bleServiceUuid: string
   bleWriteCharacteristicUuid: string
   sppServiceClassId: string

@@ -36,6 +36,7 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
     isSecure: false,
     bleSupported: false,
     serialSupported: false,
+    usbSupported: false,
     overall: false,
   });
 
@@ -411,6 +412,14 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
                   <span className="flex items-center text-rose-600 font-medium"><XCircle className="w-3.5 h-3.5 mr-1" /> Unavailable</span>
                 )}
               </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-600">WebUSB (Wired USB)</span>
+                {compat.usbSupported ? (
+                  <span className="flex items-center text-emerald-600 font-medium"><CheckCircle className="w-3.5 h-3.5 mr-1" /> Supported</span>
+                ) : (
+                  <span className="flex items-center text-rose-600 font-medium"><XCircle className="w-3.5 h-3.5 mr-1" /> Unavailable</span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -428,7 +437,7 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
         <div className="bg-white p-6 rounded-xl border border-gray-200 flex flex-col justify-between shadow-sm">
           <div>
             <div className="flex justify-between items-center text-gray-500">
-              <span className="text-xs uppercase tracking-wider font-semibold">XP-E200L Profile</span>
+              <span className="text-xs uppercase tracking-wider font-semibold">Paper Profile</span>
               <Layers className="w-5 h-5 text-gray-400" />
             </div>
             
@@ -445,11 +454,15 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
                 <span className="text-gray-500">Chars per Line:</span>
                 <span className="font-bold text-gray-900">{config.charactersPerLine} cpl (Font A)</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Transport:</span>
+                <span className="font-bold text-gray-900 uppercase">{config.transport}</span>
+              </div>
             </div>
           </div>
           
           <div className="text-[10px] text-gray-400 mt-4 border-t pt-2">
-            Configured for standard 80mm printing margins.
+            Supports BLE, Classic Bluetooth (SPP), and USB printers.
           </div>
         </div>
       </div>
@@ -465,18 +478,20 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
           {/* Transport mode selector */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Bluetooth Type</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Connection Type</label>
               <select 
                 value={config.transport}
                 onChange={e => saveConfig({ ...config, transport: e.target.value as any })}
                 className="w-full p-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-orange-500"
               >
-                <option value="spp">Bluetooth Classic / SPP (Web Serial RFCOMM - Recommended)</option>
-                <option value="ble">Bluetooth Low Energy (GATT / BLE)</option>
+                <option value="spp">Bluetooth Classic / SPP (Web Serial — Desktop Chrome/Edge)</option>
+                <option value="ble">Bluetooth Low Energy — BLE GATT (Android / iOS / All Devices)</option>
+                <option value="usb">USB — Wired USB via WebUSB (Chrome / Edge, Any OS)</option>
               </select>
               <p className="text-[11px] text-gray-400 mt-1">
-                Note: Use <strong>BLE</strong> on Android tablets (Web Serial is desktop-only).
-                On Bluetooth 4.2 devices, a full device list may appear — select your printer by name.
+                {config.transport === 'ble' && 'Use BLE on Android tablets and phones. Works on all platforms. Falls back to full scan if the printer UUID isn\'t broadcast.'}
+                {config.transport === 'spp' && 'Bluetooth Classic SPP via Web Serial RFCOMM. Best for desktop Chrome/Edge. Fastest throughput.'}
+                {config.transport === 'usb' && 'Wired USB via WebUSB. Plug the printer in via USB cable. Works on any OS with Chrome or Edge — no drivers needed.'}
               </p>
             </div>
 
@@ -559,6 +574,22 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
                   />
                 </div>
               </div>
+            </div>
+            
+            {/* Paper Width */}
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-gray-500 mb-1">Paper Width (mm)</label>
+              <select
+                value={config.paperWidth}
+                onChange={e => saveConfig({ ...config, paperWidth: Number(e.target.value),
+                  dotsPerLine: Number(e.target.value) === 58 ? 384 : 576,
+                  charactersPerLine: Number(e.target.value) === 58 ? 32 : 48
+                })}
+                className="w-full p-2 border border-gray-200 rounded-lg text-sm bg-white"
+              >
+                <option value={58}>58 mm (32 chars, 384 dots)</option>
+                <option value={80}>80 mm (48 chars, 576 dots) — Standard</option>
+              </select>
             </div>
 
             {/* Unicode rasterization */}

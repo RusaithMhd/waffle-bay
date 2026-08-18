@@ -1,7 +1,7 @@
 import { ConnectionState, PrinterConfig, PrinterTransport, LogMessage } from './types';
 
 /**
- * Check if the browser environment supports Web Bluetooth and Web Serial
+ * Check if the browser environment supports Web Bluetooth, Web Serial and WebUSB
  */
 export function checkBrowserCompatibility() {
   if (typeof window === 'undefined') {
@@ -9,6 +9,7 @@ export function checkBrowserCompatibility() {
       isSecure: false,
       bleSupported: false,
       serialSupported: false,
+      usbSupported: false,
       overall: false,
     };
   }
@@ -16,12 +17,14 @@ export function checkBrowserCompatibility() {
   const isSecure = window.isSecureContext;
   const bleSupported = typeof navigator !== 'undefined' && 'bluetooth' in navigator;
   const serialSupported = typeof navigator !== 'undefined' && 'serial' in navigator;
+  const usbSupported = typeof navigator !== 'undefined' && 'usb' in navigator;
 
   return {
     isSecure,
     bleSupported,
     serialSupported,
-    overall: isSecure && (bleSupported || serialSupported),
+    usbSupported,
+    overall: isSecure && (bleSupported || serialSupported || usbSupported),
   };
 }
 
@@ -42,6 +45,10 @@ export class PrinterConnectionManager {
   private sppPort: any = null; // SerialPort
   private sppWriter: any = null; // WritableStreamDefaultWriter
 
+  // WebUSB State variables
+  private usbDevice: any = null;          // USBDevice
+  private usbEndpointNumber: number = 1;  // bulk-OUT endpoint number
+
   // Listeners
   private stateListeners = new Set<(state: ConnectionState) => void>();
   private logListeners = new Set<(msg: LogMessage) => void>();
@@ -54,6 +61,17 @@ export class PrinterConnectionManager {
         if (this.sppPort && event.port === this.sppPort) {
           this.log('warn', 'Physical Bluetooth Serial device disconnected.');
           this.handleDisconnect('Physical link lost');
+        }
+      });
+    }
+
+    // Setup USB disconnect listener if supported
+    if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && 'usb' in navigator) {
+      const nav = navigator as any;
+      nav.usb.addEventListener('disconnect', (event: any) => {
+        if (this.usbDevice && event.device === this.usbDevice) {
+          this.log('warn', 'USB printer physically disconnected.');
+          this.handleDisconnect('USB device removed');
         }
       });
     }
@@ -133,6 +151,8 @@ export class PrinterConnectionManager {
     try {
       if (config.transport === 'ble') {
         return await this.connectBLE(config);
+      } else if (config.transport === 'usb') {
+        return await this.connectUSB();
       } else {
         return await this.connectSPP(config);
       }
@@ -302,6 +322,85 @@ export class PrinterConnectionManager {
   }
 
   /**
+   * Connect via WebUSB (wired USB receipt printers)
+   * Works on Chrome / Edge on any OS without drivers.
+   * The printer must expose a USB bulk-OUT endpoint (ESC/POS over USB).
+   */
+  private async connectUSB(): Promise<boolean> {
+    const nav = navigator as any;
+    if (!nav.usb) {
+      this.updateState('PRINTER_NOT_SUPPORTED');
+      this.log('error', 'WebUSB API not available in this browser.');
+      return false;
+    }
+
+    let device: any = null;
+
+    // 1. Try to reuse a previously approved USB device silently
+    try {
+      const approved = await nav.usb.getDevices();
+      this.log('info', `Found ${approved.length} previously approved USB device(s).`);
+      // Prefer a device that looks like a printer (class 7)
+      device = approved.find((d: any) =>
+        d.configurations?.some((c: any) =>
+          c.interfaces?.some((i: any) =>
+            i.alternates?.some((a: any) => a.interfaceClass === 7)
+          )
+        )
+      ) || (approved.length > 0 ? approved[0] : null);
+
+      if (device) {
+        this.log('info', `Reusing previously approved USB device: ${device.manufacturerName || ''} ${device.productName || ''}`);
+      }
+    } catch (e) {
+      this.log('warn', `USB getDevices() failed: ${e}`);
+    }
+
+    // 2. Prompt user to select a USB device
+    if (!device) {
+      this.log('info', 'Requesting USB printer access — device picker will open...');
+      // No filters = show all USB devices so ANY printer model is listed
+      device = await nav.usb.requestDevice({ filters: [] });
+    }
+
+    this.usbDevice = device;
+    this.log('info', `USB device selected: ${device.manufacturerName || ''} ${device.productName || ''}`);
+
+    // Open and configure the USB device
+    await this.usbDevice.open();
+    this.log('info', 'USB device opened.');
+
+    if (this.usbDevice.configuration === null) {
+      await this.usbDevice.selectConfiguration(1);
+    }
+
+    // Find the printer interface (class 7) or claim interface 0 as fallback
+    let interfaceNumber = 0;
+    let endpointNumber = 1;
+    const config = this.usbDevice.configuration;
+    if (config) {
+      outer: for (const iface of config.interfaces) {
+        for (const alt of iface.alternates) {
+          if (alt.interfaceClass === 7) { // USB Printer Class
+            interfaceNumber = iface.interfaceNumber;
+            const ep = alt.endpoints.find((e: any) => e.direction === 'out' && e.type === 'bulk');
+            if (ep) endpointNumber = ep.endpointNumber;
+            break outer;
+          }
+        }
+      }
+    }
+
+    await this.usbDevice.claimInterface(interfaceNumber);
+    this.usbEndpointNumber = endpointNumber;
+    this.log('info', `USB interface ${interfaceNumber} claimed. Bulk-OUT endpoint: ${endpointNumber}.`);
+
+    this.log('success', `Connected to USB printer: ${device.manufacturerName || ''} ${device.productName || 'Unknown USB Printer'}`);
+    this.updateState('CONNECTED');
+    return true;
+  }
+
+  /**
    * Write ESC/POS raw bytes to the physical printer
    */
   public async print(bytes: Uint8Array): Promise<boolean> {
@@ -322,10 +421,14 @@ export class PrinterConnectionManager {
       this.log('info', `Sending data chunks (size: ${chunkSize} bytes) to printer...`);
 
       if (!isBle) {
-        if (!this.sppPort || !this.sppPort.writable) {
-          throw new Error('SPP Serial port is not writable.');
+        if (this.transport === 'usb') {
+          // USB bulk transfer path
+        } else {
+          if (!this.sppPort || !this.sppPort.writable) {
+            throw new Error('SPP Serial port is not writable.');
+          }
+          writer = this.sppPort.writable.getWriter();
         }
-        writer = this.sppPort.writable.getWriter();
       }
 
       for (let offset = 0; offset < bytes.length; offset += chunkSize) {
@@ -342,6 +445,9 @@ export class PrinterConnectionManager {
             // Throttle writeWithoutResponse slightly to let the printer process
             await new Promise((resolve) => setTimeout(resolve, 20));
           }
+        } else if (this.transport === 'usb') {
+          if (!this.usbDevice) throw new Error('USB device lost');
+          await this.usbDevice.transferOut(this.usbEndpointNumber, chunk);
         } else {
           await writer.write(chunk);
         }
@@ -437,11 +543,19 @@ export class PrinterConnectionManager {
       } catch (e) {}
     }
 
+    // 3. Clean USB connection
+    if (this.usbDevice) {
+      try {
+        await this.usbDevice.close();
+      } catch (e) {}
+    }
+
     // Reset active-session handles
     this.bleGattServer = null;
     this.bleCharacteristic = null;
     this.sppPort = null;
     this.sppWriter = null;
+    this.usbDevice = null;
     this.transport = null;
 
     // Only clear the device reference on a full disconnect.
