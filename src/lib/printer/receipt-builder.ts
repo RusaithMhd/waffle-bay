@@ -156,6 +156,9 @@ export function buildReceiptBytes(
   if (order.kot_number) {
     writeLine(`KOT Ticket: #${order.kot_number}`, 'left');
   }
+  if (order.table_number) {
+    writeLine(`Table: ${order.table_number}`, 'left', true);
+  }
 
   const dateStr = order.business_date
     ? new Date(order.business_date + 'T00:00:00').toLocaleDateString([], {
@@ -218,8 +221,11 @@ export function buildReceiptBytes(
 
   // Discount
   if (order.discount > 0) {
+    const discountLabel = order.discount_type === 'percentage'
+      ? `Discount (${order.discount_value}%)`
+      : `Discount (${currencySymbol}${order.discount_value})`;
     writeLine(
-      formatTwoColumns('Discount', `-${currencySymbol} ${order.discount.toFixed(2)}`, cpl)[0],
+      formatTwoColumns(discountLabel, `-${currencySymbol} ${order.discount.toFixed(2)}`, cpl)[0],
       'left'
     );
   }

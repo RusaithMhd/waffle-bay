@@ -51,11 +51,14 @@ export interface PrintJobData {
   receipt_id: string;
   kot_number?: number;
   business_date?: string;
+  table_number?: string;
   created_at: string;
   subtotal: number;
   tax: number;
   discount: number;
   total: number;
+  discount_type?: 'percentage' | 'amount';
+  discount_value?: number;
   items: ReceiptItem[];
   payments: ReceiptPayment[];
   offline?: boolean;

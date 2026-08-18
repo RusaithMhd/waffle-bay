@@ -31,7 +31,7 @@ export default async function SalesPage(props: { searchParams: Promise<{ period?
   let ordersQuery = supabase
     .from('orders')
     .select(`
-      id, order_number, kot_number, business_date, status, total, subtotal, tax, discount, order_type, created_at,
+      id, order_number, kot_number, business_date, status, total, subtotal, tax, discount, discount_type, discount_value, order_type, created_at,
       profiles:cashier_id ( first_name ),
       payments ( method, amount ),
       order_items (

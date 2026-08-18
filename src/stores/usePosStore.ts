@@ -1,5 +1,6 @@
-import { create } from 'zustand'
-import { Product, Modifier } from '@/types'
+import { useState } from 'react'
+import { Product, Category, ModifierGroup, Modifier } from '@/types'
+import { calculateOrderTotals } from '@/lib/calculations'
 
 export interface CartItem {
   id: string // local unique id for the cart line item (e.g. timestamp)
@@ -9,6 +10,7 @@ export interface CartItem {
   itemTotal: number // (product.price + sum(modifier.prices)) * quantity
   note?: string
   customPrice?: number
+  saved?: boolean
 }
 
 export interface HeldOrder {
@@ -16,33 +18,41 @@ export interface HeldOrder {
   name: string
   cart: CartItem[]
   orderType: 'DINE_IN' | 'TAKEAWAY'
-  discountPercent: number
+  discountType: 'percentage' | 'amount'
+  discountValue: number
   created_at: number
 }
 
 interface PosState {
   cart: CartItem[]
-  discountPercent: number
+  discountType: 'percentage' | 'amount'
+  discountValue: number
   taxRatePercent: number
   activeCategoryId: string | null
   orderType: 'DINE_IN' | 'TAKEAWAY'
+  tableNumber: string
   heldOrders: HeldOrder[]
+  activeOrderId: string | null
 
   // Actions
   setActiveCategory: (id: string | null) => void
   setOrderType: (type: 'DINE_IN' | 'TAKEAWAY') => void
+  setTableNumber: (val: string) => void
   addToCart: (product: Product, modifiers: Modifier[], quantity: number, note?: string) => void
   updateQuantity: (itemId: string, delta: number) => void
   updateCartItemDetails: (itemId: string, note?: string, customPrice?: number) => void
   removeFromCart: (itemId: string) => void
   clearCart: () => void
-  setDiscount: (percent: number) => void
+  setDiscount: (value: number) => void
+  setDiscountType: (type: 'percentage' | 'amount') => void
   setTaxRate: (percent: number) => void
   setHeldOrders: (orders: HeldOrder[]) => void
   loadHeldOrders: () => void
   holdOrder: (name: string) => void
   resumeOrder: (id: string) => void
   deleteHeldOrder: (id: string) => void
+  setActiveOrderId: (id: string | null) => void
+  loadSavedOrder: (order: any) => void
 
   // Computed equivalent getters
   getSubtotal: () => number
@@ -64,16 +74,26 @@ const areModifiersEqual = (modsA: Modifier[], modsB: Modifier[]) => {
   return idsA.every((id, i) => id === idsB[i])
 }
 
+// Re-import create since it was removed from top chunk
+import { create } from 'zustand'
+
 export const usePosStore = create<PosState>((set, get) => ({
   cart: [],
-  discountPercent: 0,
+  discountType: 'percentage',
+  discountValue: 0,
   taxRatePercent: 0, // Defaults can be updated from DB settings later
   activeCategoryId: null,
   orderType: 'DINE_IN',
+  tableNumber: '',
   heldOrders: [],
+  activeOrderId: null,
 
   setActiveCategory: (id) => set({ activeCategoryId: id }),
-  setOrderType: (type) => set({ orderType: type }),
+  setOrderType: (type) => set((state) => ({ 
+    orderType: type,
+    tableNumber: type === 'TAKEAWAY' ? '' : state.tableNumber 
+  })),
+  setTableNumber: (val) => set({ tableNumber: val }),
   setHeldOrders: (orders) => set({ heldOrders: orders }),
 
   loadHeldOrders: () => {
@@ -97,7 +117,8 @@ export const usePosStore = create<PosState>((set, get) => ({
         name: name || `Order #${Date.now().toString().slice(-4)}`,
         cart: state.cart,
         orderType: state.orderType,
-        discountPercent: state.discountPercent,
+        discountType: state.discountType,
+        discountValue: state.discountValue,
         created_at: Date.now()
       }
       const updated = [...state.heldOrders, newHeld]
@@ -105,8 +126,10 @@ export const usePosStore = create<PosState>((set, get) => ({
       return {
         heldOrders: updated,
         cart: [],
-        discountPercent: 0,
-        orderType: 'DINE_IN'
+        discountType: 'percentage',
+        discountValue: 0,
+        orderType: 'DINE_IN',
+        tableNumber: ''
       }
     })
   },
@@ -121,7 +144,8 @@ export const usePosStore = create<PosState>((set, get) => ({
         heldOrders: updated,
         cart: order.cart,
         orderType: order.orderType,
-        discountPercent: order.discountPercent
+        discountType: order.discountType ?? 'percentage',
+        discountValue: order.discountValue ?? 0
       }
     })
   },
@@ -217,11 +241,49 @@ export const usePosStore = create<PosState>((set, get) => ({
     }))
   },
 
-  clearCart: () => set({ cart: [], discountPercent: 0, orderType: 'DINE_IN' }),
+  clearCart: () => set({ cart: [], discountType: 'percentage', discountValue: 0, orderType: 'DINE_IN', tableNumber: '', activeOrderId: null }),
 
-  setDiscount: (percent) => set({ discountPercent: Math.max(0, Math.min(100, percent)) }),
+  setDiscount: (value) => set({ discountValue: Math.max(0, value) }),
+  
+  setDiscountType: (type) => set({ discountType: type, discountValue: 0 }),
   
   setTaxRate: (percent) => set({ taxRatePercent: Math.max(0, percent) }),
+
+  setActiveOrderId: (id) => set({ activeOrderId: id }),
+
+  loadSavedOrder: (order) => {
+    const mappedCart: CartItem[] = (order.order_items || []).map((i: any) => {
+      const modifiers = (i.order_item_modifiers || []).map((m: any) => ({
+        id: m.modifier_id || m.id,
+        name: m.modifier_name_snapshot,
+        price: Number(m.modifier_price_snapshot)
+      }))
+      
+      return {
+        id: i.id,
+        product: {
+          id: i.product_id,
+          name: i.product_name_snapshot,
+          base_price: Number(i.unit_price_snapshot)
+        } as any,
+        quantity: i.quantity,
+        note: i.notes || undefined,
+        customPrice: Number(i.unit_price_snapshot),
+        modifiers,
+        itemTotal: Number(i.subtotal),
+        saved: true
+      }
+    })
+
+    set({
+      activeOrderId: order.id,
+      cart: mappedCart,
+      discountType: order.discount_type || 'percentage',
+      discountValue: Number(order.discount_value || 0),
+      orderType: order.order_type || 'DINE_IN',
+      tableNumber: order.table_number || ''
+    })
+  },
 
   getSubtotal: () => {
     const { cart } = get()
@@ -229,18 +291,20 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
 
   getDiscountAmount: () => {
-    const { getSubtotal, discountPercent } = get()
-    return getSubtotal() * (discountPercent / 100)
+    const { getSubtotal, discountType, discountValue, taxRatePercent } = get()
+    const totals = calculateOrderTotals(getSubtotal(), discountType, discountValue, taxRatePercent)
+    return totals.discountAmount
   },
 
   getTaxAmount: () => {
-    const { getSubtotal, getDiscountAmount, taxRatePercent } = get()
-    const discountedSubtotal = getSubtotal() - getDiscountAmount()
-    return discountedSubtotal * (taxRatePercent / 100)
+    const { getSubtotal, discountType, discountValue, taxRatePercent } = get()
+    const totals = calculateOrderTotals(getSubtotal(), discountType, discountValue, taxRatePercent)
+    return totals.taxAmount
   },
 
   getTotal: () => {
-    const { getSubtotal, getDiscountAmount, getTaxAmount } = get()
-    return getSubtotal() - getDiscountAmount() + getTaxAmount()
+    const { getSubtotal, discountType, discountValue, taxRatePercent } = get()
+    const totals = calculateOrderTotals(getSubtotal(), discountType, discountValue, taxRatePercent)
+    return totals.total
   }
 }))

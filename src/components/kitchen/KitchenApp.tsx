@@ -97,25 +97,42 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
   // ── Fetch orders ────────────────────────────────────────────────────────────
   const fetchOrders = useCallback(async () => {
     const selectQuery = `
-      id, order_number, kot_number, business_date, fulfillment_status, order_type, created_at,
-      order_items (
-        id, product_name_snapshot, quantity, fulfillment_status, notes,
-        order_item_modifiers ( modifier_name_snapshot )
+      id,
+      order_id,
+      kot_number,
+      batch_number,
+      status,
+      sent_at,
+      orders (
+        order_number,
+        order_type,
+        business_date,
+        table_number
+      ),
+      kitchen_order_items (
+        id,
+        quantity,
+        status,
+        notes,
+        order_items (
+          product_name_snapshot,
+          order_item_modifiers ( modifier_name_snapshot )
+        )
       )
     `
 
     const activeQuery = supabase
-      .from('orders')
+      .from('kitchen_orders')
       .select(selectQuery)
-      .in('fulfillment_status', ['NEW', 'PREPARING', 'READY'])
-      .order('created_at', { ascending: true })
+      .in('status', ['NEW', 'PREPARING', 'READY'])
+      .order('sent_at', { ascending: true })
 
     const completedQuery = supabase
-      .from('orders')
+      .from('kitchen_orders')
       .select(selectQuery)
-      .eq('fulfillment_status', 'COMPLETED')
+      .eq('status', 'COMPLETED')
       .eq('business_date', selectedDate)
-      .order('created_at', { ascending: false })
+      .order('sent_at', { ascending: false })
 
     const [activeRes, completedRes] = await Promise.all([activeQuery, completedQuery])
 
@@ -126,28 +143,38 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
 
     const allData = [...(activeRes.data || []), ...(completedRes.data || [])]
 
-    const mapped: KOTData[] = allData.map(o => ({
-      id:                 o.id,
-      order_number:       o.order_number,
-      kot_number:         o.kot_number,
-      business_date:      o.business_date,
-      fulfillment_status: o.fulfillment_status,
-      order_type:         o.order_type,
-      created_at:         o.created_at,
-      items: (o.order_items as any[]).map(i => ({
-        id:                       i.id,
-        product_name_snapshot:    i.product_name_snapshot,
-        quantity:                 i.quantity,
-        fulfillment_status:       i.fulfillment_status,
-        notes:                    i.notes,
-        modifiers:                i.order_item_modifiers || [],
-      })),
-    }))
+    const mapped: KOTData[] = allData.map(o => {
+      const orders = (o.orders as any) || {}
+      const items = (o.kitchen_order_items as any[] || []).map(ki => {
+        const orderItem = (ki.order_items as any) || {}
+        return {
+          id: ki.id,
+          product_name_snapshot: orderItem.product_name_snapshot || '',
+          quantity: ki.quantity,
+          fulfillment_status: ki.status || 'PENDING',
+          notes: ki.notes,
+          modifiers: orderItem.order_item_modifiers || [],
+        }
+      })
+
+      return {
+        id: o.id,
+        order_id: o.order_id,
+        order_number: Number(orders.order_number || 0),
+        kot_number: Number(o.kot_number || 0),
+        batch_number: Number(o.batch_number || 1),
+        business_date: orders.business_date,
+        fulfillment_status: o.status || 'NEW',
+        order_type: orders.order_type,
+        table_number: orders.table_number,
+        created_at: o.sent_at,
+        items,
+      }
+    })
 
     // Detect new orders → flash banner + chime sound
     const currentIds = new Set(mapped.map(o => o.id))
     if (prevOrderIdsRef.current.size > 0) {
-      // Not the first load — check for genuinely new order IDs
       let foundNew = false
       for (const id of currentIds) {
         if (!prevOrderIdsRef.current.has(id)) {
@@ -157,9 +184,6 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
           foundNew = true
           break
         }
-      }
-      if (!foundNew) {
-        // No new orders this tick — nothing to do
       }
     }
     prevOrderIdsRef.current = currentIds
@@ -173,26 +197,14 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
     fetchOrders()
 
     const channel = supabase
-      .channel('kitchen-room-v2')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
-        setOrders(prev => prev.map(o => 
-          o.id === payload.new.id 
-            ? { ...o, fulfillment_status: payload.new.fulfillment_status } 
-            : o
-        ))
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
+      .channel('kitchen-room-v3')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kitchen_orders' }, () => {
         setConnection('SYNCING')
         fetchOrders().then(() => setConnection('ONLINE'))
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'order_items' }, (payload) => {
-        setOrders(prev => prev.map(o => {
-          if (o.id !== payload.new.order_id) return o
-          return {
-            ...o,
-            items: o.items.map(i => i.id === payload.new.id ? { ...i, fulfillment_status: payload.new.fulfillment_status } : i)
-          }
-        }))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kitchen_order_items' }, () => {
+        setConnection('SYNCING')
+        fetchOrders().then(() => setConnection('ONLINE'))
       })
       .subscribe(status => {
         if (status === 'SUBSCRIBED')         setConnection('ONLINE')
@@ -216,15 +228,14 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     setUpdatingIds(prev => new Set(prev).add(orderId))
     
-    // Play complete sound locally if marking as completed
     if (status === 'COMPLETED') {
       playCompleteAlert()
     }
 
     try {
       const { error } = await supabase
-        .from('orders')
-        .update({ fulfillment_status: status })
+        .from('kitchen_orders')
+        .update({ status: status })
         .eq('id', orderId)
       if (error) throw error
 
@@ -250,8 +261,8 @@ export function KitchenApp({ userRole }: { userRole?: string }) {
     })))
     try {
       const { error } = await supabase
-        .from('order_items')
-        .update({ fulfillment_status: next })
+        .from('kitchen_order_items')
+        .update({ status: next })
         .eq('id', itemId)
       if (error) throw error
     } catch (err) {

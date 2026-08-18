@@ -13,7 +13,8 @@ export function StoreConfigTab({ settings }: { settings: any }) {
     currency_symbol: settings?.currency_symbol || 'Rs.',
     tax_rate: settings?.tax_rate || 0,
     receipt_header: settings?.receipt_header || 'Welcome to Waffle Bay!',
-    receipt_footer: settings?.receipt_footer || 'Thank you for your business!'
+    receipt_footer: settings?.receipt_footer || 'Thank you for your business!',
+    enable_discount: settings?.enable_discount ?? true
   })
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -98,6 +99,34 @@ export function StoreConfigTab({ settings }: { settings: any }) {
             onChange={e => setFormData({ ...formData, receipt_footer: e.target.value })}
             className="w-full p-3 border border-gray-200 rounded-xl text-gray-900 focus:border-orange-500 outline-none"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Discount Setting</label>
+          <div className="flex bg-gray-100 p-1 rounded-xl items-center w-fit border border-[#E5E7EB]">
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, enable_discount: true })}
+              className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+                formData.enable_discount
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              ON
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, enable_discount: false })}
+              className={`px-4 py-2 text-sm font-bold rounded-lg transition-all ${
+                !formData.enable_discount
+                  ? 'bg-orange-500 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              OFF
+            </button>
+          </div>
         </div>
 
         <button 
