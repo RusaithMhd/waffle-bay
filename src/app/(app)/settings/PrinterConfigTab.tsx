@@ -191,7 +191,7 @@ export function PrinterConfigTab({ storeSettings }: { storeSettings: any }) {
     };
 
     try {
-      const bytes = buildReceiptBytes(dummyOrder, config, dummyStore);
+      const bytes = await buildReceiptBytes(dummyOrder, config, dummyStore);
       await manager.print(bytes);
       toast.success('Test receipt sent.');
     } catch (e: any) {
