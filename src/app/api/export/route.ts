@@ -11,9 +11,24 @@ function fmt(v: unknown): string {
   return String(v)
 }
 
-function fmtDate(v: unknown): string {
+function fmtDate(v: unknown, tz?: string): string {
   if (!v) return ''
-  try { return new Date(String(v)).toLocaleString() } catch { return String(v) }
+  try { 
+    const d = new Date(String(v))
+    if (tz) {
+      return new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZoneName: 'short'
+      }).format(d)
+    }
+    return d.toLocaleString() 
+  } catch { return String(v) }
 }
 
 function fmtNum(v: unknown): number {
@@ -31,7 +46,8 @@ function buildSheet(
   title: string,
   subtitle: string,
   headers: string[],
-  rows: (string | number)[][]
+  rows: (string | number)[][],
+  tz?: string
 ): XLSX.WorkSheet {
   const ws: XLSX.WorkSheet = {}
   let rowIdx = 0
@@ -45,8 +61,11 @@ function buildSheet(
   rowIdx++
 
   // Row 2: generated timestamp
+  const genStr = tz 
+    ? new Intl.DateTimeFormat('en-GB', { timeZone: tz, dateStyle: 'medium', timeStyle: 'long' }).format(new Date()) 
+    : new Date().toLocaleString()
   XLSX.utils.sheet_add_aoa(ws,
-    [[`Generated: ${new Date().toLocaleString()}`]],
+    [[`Generated: ${genStr}`]],
     { origin: { r: rowIdx, c: 0 } }
   )
   rowIdx++
@@ -98,12 +117,13 @@ export async function GET(request: Request) {
   // ── Settings (store name + currency) ────────────────────────────────────────
   const { data: settings } = await supabase
     .from('store_settings')
-    .select('store_name, currency_symbol')
+    .select('store_name, currency_symbol, timezone')
     .eq('id', 1)
     .single()
 
   const storeName = settings?.store_name ?? 'Waffle Bay'
   const currency = settings?.currency_symbol ?? 'Rs.'
+  const timezone = settings?.timezone ?? 'UTC'
 
   // ── Date range helpers ───────────────────────────────────────────────────────
   function getDateRange(): { start?: string; end?: string } {
@@ -181,7 +201,7 @@ export async function GET(request: Request) {
         `INV-${String(o.order_number).padStart(6, '0')}`,
         o.kot_number ? `KOT-${String(o.kot_number).padStart(3, '0')}` : '',
         fmt(o.business_date),
-        fmtDate(o.created_at),
+        fmtDate(o.created_at, timezone),
         o.order_type === 'TAKEAWAY' ? 'Takeaway' : 'Dine In',
         fmt(o.status),
         profileMap[o.cashier_id] ?? 'System',
@@ -200,7 +220,7 @@ export async function GET(request: Request) {
     salesRows.push([])
     salesRows.push(['', '', '', '', '', '', 'TOTAL', '', fmtNum(totalTax), '', fmtNum(totalSales), '', ''])
 
-    buildSheet(wb, 'Sales Report', `${storeName} – Sales Report`, periodLabel, salesHeaders, salesRows)
+    buildSheet(wb, 'Sales Report', `${storeName} – Sales Report`, periodLabel, salesHeaders, salesRows, timezone)
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -246,7 +266,8 @@ export async function GET(request: Request) {
       `${storeName} – Products Catalogue`,
       `Exported on ${new Date().toLocaleDateString()}`,
       prodHeaders,
-      prodRows
+      prodRows,
+      timezone
     )
   }
 
@@ -271,7 +292,7 @@ export async function GET(request: Request) {
     ]
 
     const ledgerRows: (string | number)[][] = (ledger ?? []).map(e => [
-      fmtDate(e.created_at),
+      fmtDate(e.created_at, timezone),
       fmt(e.transaction_type),
       fmt(e.description),
       fmt(e.reference_id),
@@ -287,7 +308,7 @@ export async function GET(request: Request) {
     ledgerRows.push([])
     ledgerRows.push(['', '', '', '', '', 'TOTAL', fmtNum(totalDebit), fmtNum(totalCredit)])
 
-    buildSheet(wb, 'Ledger', `${storeName} – Accounting Ledger`, periodLabel, ledgerHeaders, ledgerRows)
+    buildSheet(wb, 'Ledger', `${storeName} – Accounting Ledger`, periodLabel, ledgerHeaders, ledgerRows, timezone)
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -323,8 +344,8 @@ export async function GET(request: Request) {
       return [
         isActive ? 'Active' : 'Closed',
         profileMap[r.cashier_id] ?? 'Unknown',
-        fmtDate(r.opened_at),
-        r.closed_at ? fmtDate(r.closed_at) : 'Still Open',
+        fmtDate(r.opened_at, timezone),
+        r.closed_at ? fmtDate(r.closed_at, timezone) : 'Still Open',
         fmtNum(r.starting_cash),
         fmtNum(r.total_cash_received),
         fmtNum(r.total_card_received),
@@ -343,7 +364,7 @@ export async function GET(request: Request) {
     zRows.push([])
     zRows.push(['', 'TOTAL', '', '', '', '', '', '', '', '', '', fmtNum(totalSales), fmtNum(totalOrders)])
 
-    buildSheet(wb, 'Z-Reports', `${storeName} – Z-Reports & Cash Flow`, periodLabel, zHeaders, zRows)
+    buildSheet(wb, 'Z-Reports', `${storeName} – Z-Reports & Cash Flow`, periodLabel, zHeaders, zRows, timezone)
   }
 
   // ────────────────────────────────────────────────────────────────────────────

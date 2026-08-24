@@ -377,19 +377,9 @@ const CartInternals = ({
         {!activeOrderId ? (
           <>
             <button
-              onClick={() => {
-                setHoldName(`Order #${Date.now().toString().slice(-4)}`)
-                setIsHoldModalOpen(true)
-              }}
-              disabled={cart.length === 0}
-              className="w-1/3 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed text-gray-700 text-[14px] font-bold py-3.5 rounded-xl border border-gray-200 transition-colors flex items-center justify-center active:scale-[0.98]"
-            >
-              Hold
-            </button>
-            <button
               onClick={onSendToKitchen}
               disabled={cart.length === 0 || !!discountError || isSubmittingKOT || (orderType === 'DINE_IN' && !tableNumber.trim())}
-              className="w-2/3 bg-[#FF6500] hover:bg-[#e65a00] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-[15px] font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center active:scale-[0.98]"
+              className="w-full bg-[#FF6500] hover:bg-[#e65a00] disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white text-[15px] font-bold py-3.5 rounded-xl shadow-sm transition-colors flex items-center justify-center active:scale-[0.98]"
             >
               {isSubmittingKOT ? 'Sending...' : 'Send to Kitchen'}
             </button>
@@ -1065,8 +1055,7 @@ export function PosApp({
 
   return (
     <div className="flex h-full bg-[#F8FAFC] text-[#111827] overflow-hidden font-sans">
-      {!hasActiveShift && <ShiftBlocker />}
-      <CloseShiftModal isOpen={isCloseShiftModalOpen} onClose={() => setIsCloseShiftModalOpen(false)} />
+
 
 
       {/* LEFT SIDE: CATALOG */}
@@ -1085,18 +1074,7 @@ export function PosApp({
               <h1 className="text-[17px] font-semibold tracking-tight text-[#111827]">Waffle Bay</h1>
             </div>
 
-            <button
-              onClick={() => setIsHeldListOpen(true)}
-              className="relative ml-1 sm:ml-4 px-2 sm:px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-[#FF6500] text-[12px] font-bold rounded-xl transition-all flex items-center space-x-1 sm:space-x-1.5 border border-orange-100 shadow-sm shrink-0"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              <span className="hidden sm:inline">Held Bills</span>
-              {heldOrders.length > 0 && (
-                <span className="bg-[#FF6500] text-white text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center">
-                  {heldOrders.length}
-                </span>
-              )}
-            </button>
+
 
             <button
               onClick={() => setIsOpenOrdersModalOpen(true)}
@@ -1124,15 +1102,7 @@ export function PosApp({
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-[#E5E7EB] z-50 overflow-hidden py-1">
-                  {hasActiveShift && (
-                    <button
-                      onClick={() => { setShowMoreMenu(false); setIsCloseShiftModalOpen(true); }}
-                      className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center"
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Close Shift
-                    </button>
-                  )}
+
                   <div className="h-px bg-[#E5E7EB] my-1" />
                   <Link href="/kitchen" className="w-full text-left px-4 py-2.5 text-[14px] font-medium text-[#111827] hover:bg-gray-50 transition-colors block">Kitchen Display (KOT)</Link>
                   {(userRole === 'admin' || userRole === 'manager') && (

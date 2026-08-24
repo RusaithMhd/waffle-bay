@@ -365,13 +365,12 @@ export function KOTCard({ order, now, onUpdateStatus, onToggleItem, isUpdating, 
       {/* ── Primary Action Button ── */}
       {order.fulfillment_status !== 'COMPLETED' && (() => {
         const isAdmin = userRole === 'admin'
-        const isWaiter = userRole === 'waiter'
+        const isWaiterOrCashier = userRole === 'waiter' || userRole === 'cashier'
         const isReady = order.fulfillment_status === 'READY'
         
-        // Admin sees all buttons
-        // Waiter ONLY sees the button when status is READY
+        // Admin, Waiter, and Cashier see all buttons (can progress through any state)
         // Chef sees the button when status is NOT READY (i.e. NEW/PREPARING)
-        const canClickAction = isAdmin ? true : (isWaiter ? isReady : !isReady)
+        const canClickAction = (isAdmin || isWaiterOrCashier) ? true : !isReady
 
         if (!canClickAction) return null
 

@@ -50,21 +50,13 @@ export default async function Home() {
   
   const { categories, products, globalToppings } = await getCachedCatalog()
 
-  const { data: activeShift } = await supabase
-    .from('cash_register_shifts')
-    .select('id')
-    .eq('cashier_id', userWithRole.id)
-    .is('closed_at', null)
-    .single()
 
-  const hasActiveShift = !!activeShift
 
   return (
     <div className="h-full">
       <PosApp 
         categories={categories} 
         products={products} 
-        hasActiveShift={hasActiveShift} 
         globalToppingsGroup={globalToppings} 
         userRole={userWithRole.role}
       />
