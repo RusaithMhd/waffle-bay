@@ -193,3 +193,85 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
 
   return wrappedLines;
 }
+
+/**
+ * Load an image from a URL and rasterize it for ESC/POS printing.
+ * Centers the image horizontally.
+ */
+export async function rasterizeImageURL(
+  url: string,
+  maxWidth: number = 576,
+  maxImgHeight: number = 200
+): Promise<{ width: number; height: number; data: Uint8Array } | null> {
+  if (typeof window === 'undefined') return null;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      let drawWidth = img.width;
+      let drawHeight = img.height;
+
+      // Scale down if it exceeds limits
+      if (drawWidth > maxWidth || drawHeight > maxImgHeight) {
+        const ratio = Math.min(maxWidth / drawWidth, maxImgHeight / drawHeight);
+        drawWidth = Math.round(drawWidth * ratio);
+        drawHeight = Math.round(drawHeight * ratio);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = maxWidth; // Full paper width to center it
+      canvas.height = drawHeight + 20; // Some padding at the bottom
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(null);
+
+      // White background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw centered
+      const offsetX = Math.floor((maxWidth - drawWidth) / 2);
+      ctx.drawImage(img, offsetX, 0, drawWidth, drawHeight);
+
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pixels = imgData.data;
+      const xBytes = Math.ceil(canvas.width / 8);
+      const packedData = new Uint8Array(xBytes * canvas.height);
+
+      for (let y = 0; y < canvas.height; y++) {
+        for (let xByte = 0; xByte < xBytes; xByte++) {
+          let byteValue = 0;
+          for (let bit = 0; bit < 8; bit++) {
+            const xPixel = xByte * 8 + bit;
+            if (xPixel < canvas.width) {
+              const idx = (y * canvas.width + xPixel) * 4;
+              const a = pixels[idx + 3];
+              // If transparent, assume white (0)
+              if (a < 128) continue;
+              const r = pixels[idx];
+              const g = pixels[idx + 1];
+              const b = pixels[idx + 2];
+              const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+              // Black threshold
+              if (luminance < 128) {
+                byteValue |= 1 << (7 - bit);
+              }
+            }
+          }
+          packedData[y * xBytes + xByte] = byteValue;
+        }
+      }
+
+      resolve({
+        width: canvas.width,
+        height: canvas.height,
+        data: packedData,
+      });
+    };
+    img.onerror = (err) => {
+      console.warn("Failed to load logo for printing", err);
+      resolve(null);
+    };
+    img.src = url;
+  });
+}

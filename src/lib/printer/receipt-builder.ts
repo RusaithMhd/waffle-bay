@@ -1,5 +1,5 @@
 import { EscPosBuilder } from './escpos';
-import { hasComplexScript, rasterizeText } from './rasterizer';
+import { hasComplexScript, rasterizeText, rasterizeImageURL } from './rasterizer';
 import { PrintJobData, PrinterConfig, StoreProfile } from './types';
 
 /**
@@ -71,11 +71,11 @@ export function formatTwoColumns(
 /**
  * Main receipt compiler. Compiles order data and store profile settings into ESC/POS bytes.
  */
-export function buildReceiptBytes(
+export async function buildReceiptBytes(
   order: PrintJobData,
   config: PrinterConfig,
   store: StoreProfile
-): Uint8Array {
+): Promise<Uint8Array> {
   const builder = new EscPosBuilder();
   const cpl = config.charactersPerLine; // E.g., 48 chars
   const dotsWidth = config.dotsPerLine; // E.g., 576 dots
@@ -108,6 +108,15 @@ export function buildReceiptBytes(
   };
 
   // --- HEADER SECTION ---
+  // Store Logo
+  if (config.useRasterization && store.logo_url) {
+    const logoImg = await rasterizeImageURL(store.logo_url, dotsWidth);
+    if (logoImg) {
+      builder.rasterImage(logoImg.width, logoImg.height, logoImg.data);
+      builder.feed(1);
+    }
+  }
+
   // Store Name (Centered, Bold, Double Size)
   if (config.useRasterization && hasComplexScript(store.store_name)) {
     const img = rasterizeText(store.store_name, {

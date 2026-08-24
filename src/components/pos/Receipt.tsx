@@ -119,7 +119,7 @@ export function Receipt({ data, onClose, autoPrint = true }: ReceiptProps) {
         useRasterization: settings.printer_use_rasterization !== undefined ? settings.printer_use_rasterization : true,
       };
 
-      const bytes = buildReceiptBytes(printJob, activeConfig, storeProfile);
+      const bytes = await buildReceiptBytes(printJob, activeConfig, storeProfile);
       
       // 3. Print
       toast.loading('Transmitting bytes to XP-E200L...', { id: toastId });
