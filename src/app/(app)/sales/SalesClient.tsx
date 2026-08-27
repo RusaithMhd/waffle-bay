@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Search, Calendar, ChevronLeft, ChevronRight, TrendingUp, ShoppingBag, DollarSign, Receipt as ReceiptIcon, LayoutDashboard, ListOrdered, Download } from 'lucide-react'
 import { Receipt, ReceiptData } from '@/components/pos/Receipt'
@@ -18,6 +18,7 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
   const [selectedReceipt, setSelectedReceipt] = useState<ReceiptData | null>(null)
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions'>('dashboard')
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null)
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null)
 
   const updateFilters = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -35,7 +36,8 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
     updateFilters('search', searchInput)
   }
 
-  const handleRowClick = (order: any) => {
+  const openReceiptModal = (order: any, e: React.MouseEvent) => {
+    e.stopPropagation()
     // Reconstruct receipt format
     const receiptData: ReceiptData = {
       order_number: order.order_number,
@@ -65,6 +67,10 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
       }))
     }
     setSelectedReceipt(receiptData)
+  }
+
+  const toggleRow = (orderId: string) => {
+    setExpandedOrderId(prev => prev === orderId ? null : orderId)
   }
 
   const handleDeleteOrderClick = (orderId: string, e: React.MouseEvent) => {
@@ -220,14 +226,6 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
             Transactions
           </button>
         </div>
-        {/* Export button — respects current period & date filters */}
-        <a
-          href={`/api/export?type=sales&period=${filters.period}${filters.specificDate ? '&date=' + filters.specificDate : ''}`}
-          className="flex items-center gap-1.5 px-4 py-2 bg-green-700 hover:bg-green-800 text-white text-xs font-bold rounded-xl transition-all shadow-sm mb-1"
-        >
-          <Download className="w-3.5 h-3.5" />
-          Export Sales (.xlsx)
-        </a>
       </div>
 
       {activeTab === 'dashboard' ? (
@@ -319,45 +317,60 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
               </div>
             ) : (
               orders.map((order: any) => (
-                <div
-                  key={order.id}
-                  onClick={() => handleRowClick(order)}
-                  className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm active:bg-orange-50/50 transition-colors flex flex-col space-y-3 cursor-pointer"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-sm font-bold text-gray-900 flex items-center gap-1.5 flex-wrap">
-                        <span>INV-{String(order.order_number).padStart(6, '0')}</span>
-                        {order.kot_number && (
-                          <span className="text-[10px] font-black text-orange-705 bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded shadow-sm">
-                            KOT-{String(order.kot_number).padStart(3, '0')}
-                          </span>
-                        )}
+                <div key={order.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col space-y-3">
+                  <div 
+                    onClick={() => toggleRow(order.id)}
+                    className="cursor-pointer"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-sm font-bold text-gray-900 flex items-center gap-1.5 flex-wrap">
+                          <span>INV-{String(order.order_number).padStart(6, '0')}</span>
+                          {order.kot_number && (
+                            <span className="text-[10px] font-black text-orange-705 bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded shadow-sm">
+                              KOT-{String(order.kot_number).padStart(3, '0')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-gray-400 mt-1 space-y-0.5">
+                          <p>
+                            Business Date:{' '}
+                            <span className="font-semibold text-gray-600">
+                              {order.business_date ? new Date(order.business_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                            </span>
+                          </p>
+                          <p>Created: {new Date(order.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</p>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-gray-400 mt-1 space-y-0.5">
-                        <p>
-                          Business Date:{' '}
-                          <span className="font-semibold text-gray-600">
-                            {order.business_date ? new Date(order.business_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
-                          </span>
-                        </p>
-                        <p>Created: {new Date(order.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</p>
+                      <div className="flex items-center space-x-1.5">
+                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${order.order_type === 'TAKEAWAY' ? 'bg-purple-150 text-purple-700' : 'bg-blue-150 text-blue-700'
+                          }`}>
+                          {order.order_type === 'TAKEAWAY' ? 'Takeaway' : 'Dine In'}
+                        </span>
+                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${order.status === 'PAID' ? 'bg-green-100 text-green-700' :
+                            order.status === 'VOID' ? 'bg-red-100 text-red-700' :
+                              order.status === 'REFUNDED' ? 'bg-orange-100 text-orange-700' :
+                                'bg-gray-100 text-gray-700'
+                          }`}>
+                          {order.status}
+                        </span>
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-1.5">
-                      <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${order.order_type === 'TAKEAWAY' ? 'bg-purple-150 text-purple-700' : 'bg-blue-150 text-blue-700'
-                        }`}>
-                        {order.order_type === 'TAKEAWAY' ? 'Takeaway' : 'Dine In'}
-                      </span>
-                      <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${order.status === 'PAID' ? 'bg-green-100 text-green-700' :
-                          order.status === 'VOID' ? 'bg-red-100 text-red-700' :
-                            order.status === 'REFUNDED' ? 'bg-orange-100 text-orange-700' :
-                              'bg-gray-100 text-gray-700'
-                        }`}>
-                        {order.status}
-                      </span>
                     </div>
                   </div>
+
+                  {expandedOrderId === order.id && (
+                    <div className="pt-3 pb-1 border-t border-gray-100">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">Order Items:</p>
+                      <div className="space-y-2">
+                        {order.order_items?.map((item: any, idx: number) => (
+                          <div key={idx} className="flex justify-between text-xs">
+                            <span className="text-gray-600"><span className="font-medium mr-1">{item.quantity}x</span> {item.product_name_snapshot}</span>
+                            <span className="font-medium text-gray-900">{currency} {(item.quantity * Number(item.unit_price_snapshot)).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                     <span className="text-xs text-gray-500 font-medium">
@@ -374,7 +387,9 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                         </button>
                       )}
-                      <ReceiptIcon className="w-4 h-4 ml-1.5 text-gray-400" />
+                      <button onClick={(e) => openReceiptModal(order, e)} className="p-1.5 ml-1 text-gray-400 hover:text-[#FF6500] transition-colors" title="View Receipt">
+                        <ReceiptIcon className="w-4 h-4" />
+                      </button>
                     </span>
                   </div>
                 </div>
@@ -400,71 +415,97 @@ export function SalesClient({ orders, metrics, analytics, pagination, filters, c
                 <tbody className="divide-y divide-gray-100">
                   {orders.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={userRole === 'admin' ? 7 : 6} className="px-6 py-12 text-center text-gray-500">
                         No sales found for the selected criteria.
                       </td>
                     </tr>
                   ) : (
                     orders.map((order: any) => (
-                      <tr
-                        key={order.id}
-                        onClick={() => handleRowClick(order)}
-                        className="hover:bg-orange-50/50 cursor-pointer transition-colors group"
-                      >
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                          <div className="flex flex-col">
-                            <span>INV-{String(order.order_number).padStart(6, '0')}</span>
-                            {order.kot_number && (
-                              <span className="text-[11px] font-black text-orange-700 mt-0.5">
-                                KOT-{String(order.kot_number).padStart(3, '0')}
+                      <React.Fragment key={order.id}>
+                        <tr
+                          onClick={() => toggleRow(order.id)}
+                          className="hover:bg-orange-50/50 cursor-pointer transition-colors group align-middle"
+                        >
+                          <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                            <div className="flex flex-col">
+                              <span>INV-{String(order.order_number).padStart(6, '0')}</span>
+                              {order.kot_number && (
+                                <span className="text-[11px] font-black text-orange-700 mt-0.5">
+                                  KOT-{String(order.kot_number).padStart(3, '0')}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500">
+                            <div className="flex flex-col space-y-0.5">
+                              <span className="font-semibold text-gray-700">
+                                {order.business_date ? new Date(order.business_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                               </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          <div className="flex flex-col space-y-0.5">
-                            <span className="font-semibold text-gray-700">
-                              {order.business_date ? new Date(order.business_date + 'T00:00:00').toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
+                              <span className="text-[11px] text-gray-400">
+                                Created: {new Date(order.created_at).toLocaleString()}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 text-xs font-bold rounded ${order.order_type === 'TAKEAWAY' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                              {order.order_type === 'TAKEAWAY' ? 'Takeaway' : 'Dine In'}
                             </span>
-                            <span className="text-[11px] text-gray-400">
-                              Created: {new Date(order.created_at).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-600 font-medium">
+                            {order.profiles?.first_name || 'System'}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${order.status === 'PAID' ? 'bg-green-100 text-green-700' :
+                                order.status === 'VOID' ? 'bg-red-100 text-red-700' :
+                                  order.status === 'REFUNDED' ? 'bg-orange-100 text-orange-700' :
+                                    'bg-gray-100 text-gray-700'
+                              }`}>
+                              {order.status}
                             </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 py-0.5 text-xs font-bold rounded ${order.order_type === 'TAKEAWAY' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                            }`}>
-                            {order.order_type === 'TAKEAWAY' ? 'Takeaway' : 'Dine In'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600 font-medium">
-                          {order.profiles?.first_name || 'System'}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${order.status === 'PAID' ? 'bg-green-100 text-green-700' :
-                              order.status === 'VOID' ? 'bg-red-100 text-red-700' :
-                                order.status === 'REFUNDED' ? 'bg-orange-100 text-orange-700' :
-                                  'bg-gray-100 text-gray-700'
-                            }`}>
-                            {order.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
-                          {currency} {Number(order.total).toFixed(2)}
-                          <ReceiptIcon className="w-4 h-4 inline ml-2 text-gray-300 group-hover:text-[#FF6500] transition-colors" />
-                        </td>
-                        {userRole === 'admin' && (
-                          <td className="px-4 py-4 text-right">
-                            <button
-                              onClick={(e) => handleDeleteOrderClick(order.id, e)}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                              title="Delete Order"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                          </td>
+                          <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
+                            {currency} {Number(order.total).toFixed(2)}
+                            <button onClick={(e) => openReceiptModal(order, e)} className="ml-2 inline-flex items-center text-gray-300 hover:text-[#FF6500] transition-colors" title="View Receipt">
+                              <ReceiptIcon className="w-4 h-4" />
                             </button>
                           </td>
+                          {userRole === 'admin' && (
+                            <td className="px-4 py-4 text-right">
+                              <button
+                                onClick={(e) => handleDeleteOrderClick(order.id, e)}
+                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                title="Delete Order"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                        {expandedOrderId === order.id && (
+                          <tr>
+                            <td colSpan={userRole === 'admin' ? 7 : 6} className="px-6 py-4 bg-orange-50/30 border-b border-gray-100">
+                              <div className="max-w-2xl">
+                                <h4 className="text-xs font-bold text-gray-900 mb-3 uppercase tracking-wider">Order Items</h4>
+                                <div className="space-y-2">
+                                  {order.order_items?.map((item: any, idx: number) => (
+                                    <div key={idx} className="flex justify-between items-start text-sm">
+                                      <div className="flex text-gray-700">
+                                        <span className="font-semibold w-8">{item.quantity}x</span>
+                                        <div>
+                                          <span>{item.product_name_snapshot}</span>
+                                          {item.notes && <p className="text-xs text-gray-500 mt-0.5">Note: {item.notes}</p>}
+                                        </div>
+                                      </div>
+                                      <span className="font-semibold text-gray-900">{currency} {(item.quantity * Number(item.unit_price_snapshot)).toFixed(2)}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
                         )}
-                      </tr>
+                      </React.Fragment>
                     ))
                   )}
                 </tbody>

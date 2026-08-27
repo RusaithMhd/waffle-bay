@@ -554,6 +554,7 @@ export function PosApp({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedModifiers, setSelectedModifiers] = useState<Modifier[]>([])
   const [selectedNote, setSelectedNote] = useState('')
+  const [selectedMetadata, setSelectedMetadata] = useState<any>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
   // Modals / Toggles
@@ -793,10 +794,12 @@ export function PosApp({
     const matchesCategory = activeCategoryId ? p.category_id === activeCategoryId : true
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesCategory && matchesSearch
-  })
+  }).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
 
   const handleProductClick = (product: Product) => {
-    const hasGlobalToppings = globalToppingsGroup && globalToppingsGroup.modifiers && globalToppingsGroup.modifiers.length > 0
+    const category = activeCategories.find(c => c.id === product.category_id)
+    const isBeverage = category?.name.toLowerCase().includes('beverage') || product.name.toLowerCase().includes('water')
+    const hasGlobalToppings = !isBeverage && globalToppingsGroup && globalToppingsGroup.modifiers && globalToppingsGroup.modifiers.length > 0
     const hasProductModifiers = product.modifier_groups && product.modifier_groups.length > 0
 
     if (hasProductModifiers || hasGlobalToppings) {
@@ -829,22 +832,33 @@ export function PosApp({
     }
 
     const note = `½ ${firstHalf.name}\n½ ${secondHalf.name}`
-
-    addToCart(halfAndHalfProduct, [], 1, note, {
-      type: 'half_and_half',
+    const metadata = {
+      type: 'half_and_half' as const,
       halves: [
         { product_id: firstHalf.id, product_name: firstHalf.name },
         { product_id: secondHalf.id, product_name: secondHalf.name }
       ]
-    })
+    }
+
+    const hasGlobalToppings = globalToppingsGroup && globalToppingsGroup.modifiers && globalToppingsGroup.modifiers.length > 0
+    if (hasGlobalToppings) {
+      halfAndHalfProduct.modifier_groups = [globalToppingsGroup]
+      setSelectedProduct(halfAndHalfProduct)
+      setSelectedModifiers([])
+      setSelectedNote(note)
+      setSelectedMetadata(metadata)
+    } else {
+      addToCart(halfAndHalfProduct, [], 1, note, metadata)
+    }
   }
 
   const handleAddWithModifiers = () => {
     if (selectedProduct) {
-      addToCart(selectedProduct, selectedModifiers, 1, selectedNote)
+      addToCart(selectedProduct, selectedModifiers, 1, selectedNote, selectedMetadata)
       setSelectedProduct(null)
       setSelectedModifiers([])
       setSelectedNote('')
+      setSelectedMetadata(null)
     }
   }
 
