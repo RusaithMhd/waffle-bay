@@ -195,8 +195,8 @@ export async function GET(request: Request) {
     ]
 
     const salesRows: (string | number)[][] = (orders ?? []).map(o => {
-      const payments = (o.payments ?? []).map((p: any) => `${p.method}: ${currency} ${fmtNum(p.amount).toFixed(2)}`).join('; ')
-      const items = (o.order_items ?? []).map((i: any) => `${i.quantity}x ${i.product_name_snapshot}`).join('; ')
+      const payments = (o.payments ?? []).map((p: any) => `• ${p.method}: ${currency} ${fmtNum(p.amount).toFixed(2)}`).join(' \r\n')
+      const items = (o.order_items ?? []).map((i: any) => `• ${i.quantity}x ${i.product_name_snapshot}`).join(' \r\n')
       return [
         `INV-${String(o.order_number).padStart(6, '0')}`,
         o.kot_number ? `KOT-${String(o.kot_number).padStart(3, '0')}` : '',
