@@ -1,6 +1,7 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { getCurrentUserWithRole } from '@/lib/auth'
 
 async function requireAdmin() {
@@ -8,6 +9,23 @@ async function requireAdmin() {
   if (!user || user.role !== 'admin') {
     throw new Error('Unauthorized: Admin access required')
   }
+  return user
+}
+
+export async function verifyAdminPassword(password: string) {
+  const user = await requireAdmin()
+  const supabase = await createClient()
+  
+  const { error } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: password
+  })
+
+  if (error) {
+    throw new Error('Invalid password')
+  }
+
+  return { success: true }
 }
 
 export async function clearSalesData() {

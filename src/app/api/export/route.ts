@@ -170,7 +170,7 @@ export async function GET(request: Request) {
   // ════════════════════════════════════════════════════════════════════════════
   // SALES REPORT
   // ════════════════════════════════════════════════════════════════════════════
-  if (type === 'sales' || type === 'all') {
+  if (type === 'sales' || type === 'all' || type === 'backup') {
     let q = supabase
       .from('orders')
       .select(`
@@ -226,7 +226,7 @@ export async function GET(request: Request) {
   // ════════════════════════════════════════════════════════════════════════════
   // PRODUCTS CATALOGUE
   // ════════════════════════════════════════════════════════════════════════════
-  if (type === 'products') {
+  if (type === 'products' || type === 'backup') {
     const { data: products, error: prodError } = await supabase
       .from('products')
       .select('name, description, base_price, sku, is_active, sort_order, category:categories(name)')
@@ -274,7 +274,7 @@ export async function GET(request: Request) {
   // ════════════════════════════════════════════════════════════════════════════
   // LEDGER REPORT
   // ════════════════════════════════════════════════════════════════════════════
-  if (type === 'ledger' || type === 'all') {
+  if (type === 'ledger' || type === 'all' || type === 'backup') {
     let q = supabase
       .from('accounting_ledger')
       .select('id, created_at, transaction_type, description, reference_id, debit, credit, payment_method, cashier_id')
@@ -314,7 +314,7 @@ export async function GET(request: Request) {
   // ════════════════════════════════════════════════════════════════════════════
   // Z-REPORTS
   // ════════════════════════════════════════════════════════════════════════════
-  if (type === 'z-reports' || type === 'all') {
+  if (type === 'z-reports' || type === 'all' || type === 'backup') {
     let q = supabase
       .from('z_reports_view')
       .select('*')
@@ -365,6 +365,48 @@ export async function GET(request: Request) {
     zRows.push(['', 'TOTAL', '', '', '', '', '', '', '', '', '', fmtNum(totalSales), fmtNum(totalOrders)])
 
     buildSheet(wb, 'Z-Reports', `${storeName} – Z-Reports & Cash Flow`, periodLabel, zHeaders, zRows, timezone)
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // SYSTEM & KOT AUDIT LOGS (For Backup)
+  // ════════════════════════════════════════════════════════════════════════════
+  if (type === 'backup') {
+    // Audit Logs
+    const { data: auditLogs } = await supabase
+      .from('audit_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    const auditHeaders = ['Log ID', 'Date & Time', 'Action', 'Entity Type', 'Entity ID', 'User ID', 'Details']
+    const auditRows: (string | number)[][] = (auditLogs ?? []).map(l => [
+      fmt(l.id),
+      fmtDate(l.created_at, timezone),
+      fmt(l.action),
+      fmt(l.entity_type),
+      fmt(l.entity_id),
+      fmt(l.user_id),
+      JSON.stringify(l.details ?? {})
+    ])
+    buildSheet(wb, 'System Logs', `${storeName} – System Audit Logs`, periodLabel, auditHeaders, auditRows, timezone)
+
+    // KOT Audit Logs
+    const { data: kotLogs } = await supabase
+      .from('kot_audit_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    const kotHeaders = ['Log ID', 'Date & Time', 'Action', 'Old Number', 'New Number', 'Reason', 'Business Date', 'Cashier ID']
+    const kotRows: (string | number)[][] = (kotLogs ?? []).map(l => [
+      fmt(l.id),
+      fmtDate(l.created_at, timezone),
+      fmt(l.action),
+      fmt(l.old_number),
+      fmt(l.new_number),
+      fmt(l.reason),
+      fmt(l.business_date),
+      fmt(l.cashier_id)
+    ])
+    buildSheet(wb, 'KOT Logs', `${storeName} – KOT Audit Logs`, periodLabel, kotHeaders, kotRows, timezone)
   }
 
   // ────────────────────────────────────────────────────────────────────────────
