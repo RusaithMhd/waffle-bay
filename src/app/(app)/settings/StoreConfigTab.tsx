@@ -115,9 +115,9 @@ export function StoreConfigTab({ settings }: { settings: any }) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Store Logo</label>
-          <div className="flex items-center space-x-6">
+          <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
             {logoPreview ? (
-              <div className="relative w-32 h-32 rounded-xl border-2 border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
+              <div className="relative w-32 h-32 rounded-xl border-2 border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center shrink-0">
                 <img src={logoPreview} alt="Store Logo" className="max-w-full max-h-full object-contain p-2" />
                 <button
                   type="button"
@@ -132,7 +132,7 @@ export function StoreConfigTab({ settings }: { settings: any }) {
                 </button>
               </div>
             ) : (
-              <div className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center">
+              <div className="w-32 h-32 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center shrink-0">
                 <span className="text-gray-400 text-sm">No Logo</span>
               </div>
             )}
