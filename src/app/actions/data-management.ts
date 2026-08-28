@@ -82,6 +82,10 @@ export async function deleteOrderById(orderId: string) {
   await requireAdmin()
   const supabase = createAdminClient()
 
+  // Delete related accounting ledger entries (so it deducts from the accounts)
+  const { error: ledgerError } = await supabase.from('accounting_ledger').delete().eq('reference_id', orderId)
+  if (ledgerError) throw new Error('Failed to delete related accounting ledger entries: ' + ledgerError.message)
+
   // This will cascade delete order_items, order_item_modifiers, payments, etc.
   const { error } = await supabase.from('orders').delete().eq('id', orderId)
 

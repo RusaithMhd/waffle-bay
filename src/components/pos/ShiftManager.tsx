@@ -82,7 +82,7 @@ export function CloseShiftModal({ isOpen, onClose }: { isOpen: boolean; onClose:
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl flex flex-col items-center relative">
             <h2 className="text-2xl font-black text-gray-900 mb-2">Close Shift</h2>
-            <p className="text-gray-500 text-center mb-6">Count the physical cash in the drawer to generate your Z-Report.</p>
+            <p className="text-gray-500 text-center mb-6">Count the physical cash in the drawer to close your shift.</p>
             
             <div className="w-full mb-4">
               <label className="block text-sm font-bold text-gray-700 mb-2">Actual Cash Count (Rs.)</label>

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { TrendingUp, TrendingDown, DollarSign, Receipt, FileText } from 'lucide-react'
+import { TrendingUp, TrendingDown, DollarSign, Receipt, FileText, ArrowDownToLine, Wallet } from 'lucide-react'
 import { getCurrentUserWithRole } from '@/lib/auth'
 import { hasPermission }          from '@/lib/rbac'
 import { AccessDenied }           from '@/components/AccessDenied'
@@ -90,7 +90,7 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Accounting & Finance</h1>
-          <p className="text-gray-500 mt-2">Profit & Loss, Z-Reports, and Ledger summaries.</p>
+          <p className="text-gray-500 mt-2">Profit & Loss and Ledger summaries.</p>
         </div>
         
         {zError && <div className="bg-red-100 text-red-700 p-2 rounded w-full my-2">Z-Error: {zError.message}</div>}
@@ -98,7 +98,7 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
 
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center w-full lg:w-auto">
           {/* Timeline Filter Controls */}
-          <div className="flex flex-wrap gap-1.5 bg-gray-100 p-1 rounded-2xl items-center w-full lg:w-auto overflow-x-auto">
+          <div className="flex flex-nowrap gap-1.5 bg-gray-100 p-1 rounded-2xl items-center w-full lg:w-auto overflow-x-auto hide-scrollbar">
             <div className="flex-shrink-0"><DatePickerFilter currentDate={specificDate} /></div>
             <div className="w-px h-6 bg-gray-300 mx-1 hidden sm:block flex-shrink-0"></div>
             <a href="/accounting?period=daily" className={`flex-shrink-0 px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all ${period === 'daily' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>Daily</a>
@@ -108,22 +108,18 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
             <a href="/accounting?period=all" className={`flex-shrink-0 px-3.5 py-1.5 text-xs sm:text-sm font-semibold rounded-xl transition-all ${period === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>All Time</a>
           </div>
 
-          <div className="flex flex-wrap gap-2 items-center w-full lg:w-auto justify-end sm:justify-start">
-            <CashManagementModal />
+          <div className="flex flex-col sm:flex-row gap-2 items-center w-full lg:w-auto">
+            <div className="w-full sm:w-auto flex flex-col [&>button]:w-full">
+              <CashManagementModal />
+            </div>
             <a 
               href={`/api/export?type=ledger&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
-              className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2.5 rounded-xl shadow-sm flex items-center space-x-1.5 font-bold transition-all text-xs sm:text-sm"
+              className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2.5 rounded-xl shadow-sm flex items-center justify-center space-x-1.5 font-bold transition-all text-xs sm:text-sm w-full sm:w-auto"
             >
               <FileText className="w-4 h-4" />
               <span>Ledger (.xlsx)</span>
             </a>
-            <a 
-              href={`/api/export?type=z-reports&period=${period}${specificDate ? '&date=' + specificDate : ''}`}
-              className="bg-[#FF6500] hover:bg-[#e65a00] text-white px-4 py-2.5 rounded-xl shadow-sm flex items-center space-x-1.5 font-bold transition-all text-xs sm:text-sm"
-            >
-              <FileText className="w-4 h-4" />
-              <span>Z-Reports (.xlsx)</span>
-            </a>
+
           </div>
         </div>
       </div>
@@ -134,101 +130,43 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
           <TrendingUp className="w-5 h-5 mr-2 text-gray-400" />
           Current Period P&L
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-          <p className="text-gray-500 text-sm font-medium mb-1">Total Revenue</p>
-          <p className="text-3xl font-bold text-green-600">{currencySymbol} {Number(plData?.total_revenue || 0).toFixed(2)}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-          <p className="text-gray-500 text-sm font-medium mb-1">Cost of Goods Sold (COGS)</p>
-          <p className="text-3xl font-bold text-red-600">{currencySymbol} {Number(plData?.total_cogs || 0).toFixed(2)}</p>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-          <p className="text-gray-500 text-sm font-medium mb-1">Operating Expenses</p>
-          <p className="text-3xl font-bold text-red-600">{currencySymbol} {Number(plData?.operating_expenses || 0).toFixed(2)}</p>
-        </div>
-        <div className="bg-gray-900 p-6 rounded-2xl shadow-sm">
-          <p className="text-gray-400 text-sm font-medium mb-1">Net Profit</p>
-          <p className="text-3xl font-bold text-white">{currencySymbol} {Number(plData?.net_profit || 0).toFixed(2)}</p>
-        </div>
-        </div>
-      </div>
-
-      {/* Z-Reports */}
-      <div className="pt-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-900 flex items-center">
-            <Receipt className="w-5 h-5 mr-2 text-gray-400" />
-            Z-Reports & Cash Flow
-          </h2>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[1200px]">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm uppercase tracking-wider">
-                  <th className="p-4 font-semibold">Status</th>
-                  <th className="p-4 font-semibold">Shift Time</th>
-                  <th className="p-4 font-semibold">Staff</th>
-                  <th className="p-4 font-semibold text-right">Opening</th>
-                  <th className="p-4 font-semibold text-right">Cash In</th>
-                  <th className="p-4 font-semibold text-right">Expenses Out</th>
-                  <th className="p-4 font-semibold text-right">Expected</th>
-                  <th className="p-4 font-semibold text-right">Actual</th>
-                  <th className="p-4 font-semibold text-right">Variance</th>
-                  <th className="p-4 font-semibold text-right">Total Sales</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 text-gray-700">
-                {zReports?.map((report) => {
-                  const isActive = !report.closed_at
-                  
-                  return (
-                  <tr key={report.shift_id} className="hover:bg-gray-50 transition-colors">
-                    <td className="p-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        isActive ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {isActive ? 'Active' : 'Closed'}
-                      </span>
-                    </td>
-                    <td className="p-4 text-sm text-gray-500">
-                      <div>{new Date(report.opened_at).toLocaleString()}</div>
-                      <div className="text-xs mt-1">{report.closed_at ? new Date(report.closed_at).toLocaleString() : '---'}</div>
-                    </td>
-                    <td className="p-4 text-sm text-gray-500">{profileMap[report.cashier_id] || 'Unknown'}</td>
-                    <td className="p-4 text-sm text-right text-gray-500">{currencySymbol} {Number(report.starting_cash).toFixed(2)}</td>
-                    <td className="p-4 text-sm text-right text-green-600 font-medium">+{currencySymbol} {Number(report.total_cash_received).toFixed(2)}</td>
-                    <td className="p-4 text-sm text-right text-red-600 font-medium">-{currencySymbol} {Number(report.total_expenses).toFixed(2)}</td>
-                    <td className="p-4 text-sm text-right font-medium text-gray-900">
-                      {currencySymbol} {isActive ? Number(report.expected_cash_live || 0).toFixed(2) : Number(report.expected_cash || 0).toFixed(2)}
-                    </td>
-                    <td className="p-4 text-sm text-right text-gray-900">
-                      {isActive ? '---' : `${currencySymbol} ${Number(report.actual_cash || 0).toFixed(2)}`}
-                    </td>
-                    <td className={`p-4 text-sm text-right font-medium ${
-                      Number(report.variance) < 0 ? 'text-red-600' : Number(report.variance) > 0 ? 'text-green-600' : 'text-gray-500'
-                    }`}>
-                      {isActive ? '---' : `${Number(report.variance) > 0 ? '+' : ''}${Number(report.variance || 0).toFixed(2)}`}
-                    </td>
-                    <td className="p-4 text-sm text-right font-bold text-gray-900">
-                      <div>{currencySymbol} {Number(report.total_sales).toFixed(2)}</div>
-                      <div className="text-xs text-gray-500 font-normal mt-1">{report.total_orders} orders</div>
-                    </td>
-                  </tr>
-                )})}
-                {(!zReports || zReports.length === 0) && (
-                  <tr>
-                    <td colSpan={10} className="p-8 text-center text-gray-500">
-                      No shift records found for this period.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-green-50 text-green-600 rounded-lg"><TrendingUp className="w-4 h-4" /></div>
+              <p className="text-gray-600 text-sm font-bold">Total Revenue</p>
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-gray-900">{currencySymbol} {Number(plData?.total_revenue || 0).toFixed(2)}</p>
+          </div>
+          
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-orange-50 text-orange-600 rounded-lg"><TrendingDown className="w-4 h-4" /></div>
+              <p className="text-gray-600 text-sm font-bold">Cost of Goods Sold (COGS)</p>
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-gray-900">{currencySymbol} {Number(plData?.total_cogs || 0).toFixed(2)}</p>
+          </div>
+          
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+            <div className="flex items-center space-x-2 mb-2">
+              <div className="p-1.5 bg-red-50 text-red-600 rounded-lg"><ArrowDownToLine className="w-4 h-4" /></div>
+              <p className="text-gray-600 text-sm font-bold">Operating Expenses</p>
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-gray-900">{currencySymbol} {Number(plData?.operating_expenses || 0).toFixed(2)}</p>
+          </div>
+          
+          <div className="bg-gray-900 p-5 rounded-2xl shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 -mt-2 -mr-2 w-16 h-16 bg-white opacity-10 rounded-full blur-xl"></div>
+            <div className="flex items-center space-x-2 mb-2 relative z-10">
+              <div className="p-1.5 bg-white/10 text-white rounded-lg"><Wallet className="w-4 h-4" /></div>
+              <p className="text-gray-300 text-sm font-bold">Net Profit</p>
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-white relative z-10">{currencySymbol} {Number(plData?.net_profit || 0).toFixed(2)}</p>
           </div>
         </div>
       </div>
+
+
 
       {/* Accounting Ledger */}
       <div className="pt-4">
@@ -239,7 +177,7 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
           </h2>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm uppercase tracking-wider">
@@ -281,6 +219,43 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden divide-y divide-gray-200">
+            {ledgerEntries?.map((entry) => (
+              <div key={entry.id} className="p-4 bg-white hover:bg-gray-50 flex flex-col space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-800 uppercase tracking-wide">
+                      {entry.transaction_type}
+                    </span>
+                    <p className="text-gray-900 font-bold mt-1.5 text-sm leading-snug">{entry.description}</p>
+                  </div>
+                  <div className="text-right shrink-0 ml-4">
+                    {Number(entry.debit) > 0 ? (
+                      <p className="text-green-600 font-black text-sm">+{currencySymbol} {Number(entry.debit).toFixed(2)}</p>
+                    ) : (
+                      <p className="text-red-600 font-black text-sm">-{currencySymbol} {Number(entry.credit).toFixed(2)}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-between items-end text-xs text-gray-500 pt-1 border-t border-gray-50">
+                  <div className="space-y-1 mt-1">
+                    <p className="flex items-center"><span className="w-10 inline-block font-medium text-gray-400">Date:</span> <span className="text-gray-700">{new Date(entry.created_at).toLocaleString()}</span></p>
+                    <p className="flex items-center"><span className="w-10 inline-block font-medium text-gray-400">Staff:</span> <span className="text-gray-700 font-medium">{profileMap[entry.cashier_id] || 'System'}</span></p>
+                  </div>
+                  <div className="shrink-0">
+                    <span className="bg-gray-50 border border-gray-200 px-2 py-1 rounded text-gray-500 font-semibold capitalize text-[11px]">{entry.payment_method.toLowerCase()}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {(!ledgerEntries || ledgerEntries.length === 0) && (
+              <div className="p-8 text-center text-gray-500 text-sm">
+                No ledger entries found for this period.
+              </div>
+            )}
           </div>
 
           {totalLPages > 1 && (
