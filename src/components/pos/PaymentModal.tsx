@@ -142,12 +142,13 @@ export function PaymentModal({ onClose, onSuccess, userRole, activeOrder }: Paym
       table_number: tableNumber,
       idempotency_key: idempotencyKey,
       items: cart.map(item => ({
-        product_id: item.product.id,
+        product_id: item.product.id === 'HALF-AND-HALF' ? null : item.product.id,
         product_name_snapshot: item.product.name,
         unit_price_snapshot: item.customPrice !== undefined ? item.customPrice : item.product.base_price,
         quantity: item.quantity,
         subtotal: item.itemTotal,
         notes: item.note,
+        metadata: item.metadata,
         modifiers: item.modifiers.map(mod => ({
           modifier_id: mod.id,
           modifier_name_snapshot: mod.name,
