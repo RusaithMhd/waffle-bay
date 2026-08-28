@@ -6,6 +6,7 @@ import { hasPermission }          from '@/lib/rbac'
 import { AccessDenied }           from '@/components/AccessDenied'
 import { DatePickerFilter }       from './DatePickerFilter'
 import { CashManagementModal }    from './CashManagementModal'
+import { AccountingChart }        from '@/components/accounting/AccountingChart'
 
 export default async function AccountingPage(props: { searchParams: Promise<{ period?: string, date?: string, zPage?: string, lPage?: string }> }) {
   const searchParams = await props.searchParams
@@ -28,30 +29,37 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
   let zReportsQuery = supabase.from('z_reports_view').select('*', { count: 'exact' }).order('opened_at', { ascending: false })
   let ledgerQuery = supabase.from('accounting_ledger').select('*', { count: 'exact' }).order('created_at', { ascending: false })
   
+  let chartQuery = supabase.from('accounting_ledger').select('created_at, transaction_type, debit, credit').limit(10000).order('created_at', { ascending: true })
+
   if (period === 'custom' && specificDate) {
     const [year, month, day] = specificDate.split('-').map(Number)
     const startOfDay = new Date(year, month - 1, day, 0,0,0,0)
     const endOfDay = new Date(year, month - 1, day, 23,59,59,999)
     zReportsQuery = zReportsQuery.gte('opened_at', startOfDay.toISOString()).lte('opened_at', endOfDay.toISOString())
     ledgerQuery = ledgerQuery.gte('created_at', startOfDay.toISOString()).lte('created_at', endOfDay.toISOString())
+    chartQuery = chartQuery.gte('created_at', startOfDay.toISOString()).lte('created_at', endOfDay.toISOString())
   } else if (period === 'daily') {
     zReportsQuery = zReportsQuery.gte('opened_at', new Date(new Date().setHours(0,0,0,0)).toISOString())
     ledgerQuery = ledgerQuery.gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString())
+    chartQuery = chartQuery.gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString())
   } else if (period === 'weekly') {
     const lastWeek = new Date()
     lastWeek.setDate(lastWeek.getDate() - 7)
     zReportsQuery = zReportsQuery.gte('opened_at', lastWeek.toISOString())
     ledgerQuery = ledgerQuery.gte('created_at', lastWeek.toISOString())
+    chartQuery = chartQuery.gte('created_at', lastWeek.toISOString())
   } else if (period === 'monthly') {
     const lastMonth = new Date()
     lastMonth.setMonth(lastMonth.getMonth() - 1)
     zReportsQuery = zReportsQuery.gte('opened_at', lastMonth.toISOString())
     ledgerQuery = ledgerQuery.gte('created_at', lastMonth.toISOString())
+    chartQuery = chartQuery.gte('created_at', lastMonth.toISOString())
   } else if (period === 'yearly') {
     const lastYear = new Date()
     lastYear.setFullYear(lastYear.getFullYear() - 1)
     zReportsQuery = zReportsQuery.gte('opened_at', lastYear.toISOString())
     ledgerQuery = ledgerQuery.gte('created_at', lastYear.toISOString())
+    chartQuery = chartQuery.gte('created_at', lastYear.toISOString())
   }
 
   // Apply Pagination Ranges
@@ -65,13 +73,13 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
 
   const [
     { data: settings },
-    { data: plData },
+    { data: chartEntries },
     { data: zReports, error: zError, count: zCount },
     { data: ledgerEntries, error: lError, count: lCount },
     { data: profiles }
   ] = await Promise.all([
     supabase.from('store_settings').select('*').eq('id', 1).single(),
-    supabase.from('pl_summary_view').select('*').order('period', { ascending: false }).limit(1).single(),
+    chartQuery,
     zReportsQuery,
     ledgerQuery,
     supabase.from('profiles').select('id, first_name')
@@ -84,6 +92,85 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
   const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p.first_name]))
 
   const currencySymbol = settings?.currency_symbol || 'Rs.'
+
+  let liveRevenue = 0
+  let liveCogs = 0
+  let liveExpenses = 0
+  const chartDataMap = new Map<string, { name: string, revenue: number, expenses: number }>()
+
+  // Pre-fill map to ensure continuous X-axis for "Proper" charts
+  const now = new Date()
+  if (period === 'daily') {
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(now)
+      d.setHours(i, 0, 0, 0)
+      const bucket = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      chartDataMap.set(bucket, { name: bucket, revenue: 0, expenses: 0 })
+    }
+  } else if (period === 'weekly') {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const bucket = d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+      chartDataMap.set(bucket, { name: bucket, revenue: 0, expenses: 0 })
+    }
+  } else if (period === 'monthly') {
+    // roughly 30 days
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const bucket = d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      chartDataMap.set(bucket, { name: bucket, revenue: 0, expenses: 0 })
+    }
+  } else if (period === 'yearly') {
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now)
+      d.setMonth(d.getMonth() - i)
+      const bucket = d.toLocaleDateString([], { month: 'short', year: 'numeric' })
+      chartDataMap.set(bucket, { name: bucket, revenue: 0, expenses: 0 })
+    }
+  }
+
+  chartEntries?.forEach(entry => {
+    const d = new Date(entry.created_at)
+    let bucket = ''
+    if (period === 'daily' || period === 'custom') {
+      // Round down to the hour to match pre-filled buckets
+      d.setMinutes(0, 0, 0)
+      bucket = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } else if (period === 'weekly') {
+      bucket = d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+    } else if (period === 'monthly') {
+      bucket = d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    } else {
+      // Ensure month/year matches for yearly/all-time
+      d.setDate(1)
+      bucket = d.toLocaleDateString([], { month: 'short', year: 'numeric' })
+    }
+
+    if (!chartDataMap.has(bucket)) {
+      chartDataMap.set(bucket, { name: bucket, revenue: 0, expenses: 0 })
+    }
+    const bin = chartDataMap.get(bucket)!
+
+    const debit = Number(entry.debit || 0)
+    const credit = Number(entry.credit || 0)
+
+    if (entry.transaction_type === 'SALE') {
+      const amount = credit - debit
+      liveRevenue += amount
+      bin.revenue += amount
+    } else if (entry.transaction_type === 'REFUND') {
+      liveRevenue -= debit
+      bin.revenue -= debit
+    } else if (entry.transaction_type === 'EXPENSE' || entry.transaction_type === 'CASH_OUT') {
+      liveExpenses += credit
+      bin.expenses += credit
+    }
+  })
+  
+  const liveNetProfit = liveRevenue - liveCogs - liveExpenses
+  const chartData = Array.from(chartDataMap.values())
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8">
@@ -136,7 +223,7 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
               <div className="p-1.5 bg-green-50 text-green-600 rounded-lg"><TrendingUp className="w-4 h-4" /></div>
               <p className="text-gray-600 text-sm font-bold">Total Revenue</p>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-gray-900">{currencySymbol} {Number(plData?.total_revenue || 0).toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-black text-gray-900">{currencySymbol} {liveRevenue.toFixed(2)}</p>
           </div>
           
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
@@ -144,7 +231,7 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
               <div className="p-1.5 bg-orange-50 text-orange-600 rounded-lg"><TrendingDown className="w-4 h-4" /></div>
               <p className="text-gray-600 text-sm font-bold">Cost of Goods Sold (COGS)</p>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-gray-900">{currencySymbol} {Number(plData?.total_cogs || 0).toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-black text-gray-900">{currencySymbol} {liveCogs.toFixed(2)}</p>
           </div>
           
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
@@ -152,7 +239,7 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
               <div className="p-1.5 bg-red-50 text-red-600 rounded-lg"><ArrowDownToLine className="w-4 h-4" /></div>
               <p className="text-gray-600 text-sm font-bold">Operating Expenses</p>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-gray-900">{currencySymbol} {Number(plData?.operating_expenses || 0).toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-black text-gray-900">{currencySymbol} {liveExpenses.toFixed(2)}</p>
           </div>
           
           <div className="bg-gray-900 p-5 rounded-2xl shadow-sm relative overflow-hidden">
@@ -161,10 +248,12 @@ export default async function AccountingPage(props: { searchParams: Promise<{ pe
               <div className="p-1.5 bg-white/10 text-white rounded-lg"><Wallet className="w-4 h-4" /></div>
               <p className="text-gray-300 text-sm font-bold">Net Profit</p>
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-white relative z-10">{currencySymbol} {Number(plData?.net_profit || 0).toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-black text-white relative z-10">{currencySymbol} {liveNetProfit.toFixed(2)}</p>
           </div>
         </div>
       </div>
+
+      <AccountingChart data={chartData} currencySymbol={currencySymbol} />
 
 
 
