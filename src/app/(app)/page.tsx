@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { DollarSign, ShoppingBag, PackageOpen, AlertTriangle, TrendingUp, Clock, ReceiptText, ArrowRight } from 'lucide-react'
+import { DollarSign, ShoppingBag, PackageOpen, TrendingUp, Clock, ReceiptText, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { getCurrentUserWithRole } from '@/lib/auth'
 import { ROLE_HOME, hasPermission } from '@/lib/rbac'
@@ -34,12 +34,10 @@ export default async function DashboardPage(props: { searchParams: Promise<{ per
   const [
     { data: settings },
     { data: ordersData },
-    { data: lowStockData },
     { data: recentOrdersData }
   ] = await Promise.all([
     supabase.from('store_settings').select('*').eq('id', 1).single(),
     ordersQuery,
-    supabase.from('ingredients').select('*').lte('current_stock', 500),
     supabase.from('orders').select('order_number, total, status, created_at, order_type').order('created_at', { ascending: false }).limit(6)
   ])
 
@@ -49,7 +47,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ per
   const totalOrders = ordersData?.length || 0
   const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0
 
-  const lowStockCount = lowStockData?.filter(item => Number(item.current_stock) <= Number(item.reorder_level))?.length || 0
+
 
 
   return (
@@ -92,7 +90,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ per
           
           {/* Left Side: Metrics (col-span-3) */}
           <div className="lg:col-span-3 space-y-6 order-2 lg:order-1">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               
               {/* Primary Metric - Revenue */}
               <div className="group relative bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-200/50 rounded-2xl p-4 sm:p-5 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-300/50 transition-all duration-300 flex flex-col justify-between h-[130px] sm:h-[140px] overflow-hidden">
@@ -149,33 +147,7 @@ export default async function DashboardPage(props: { searchParams: Promise<{ per
                 </div>
               </div>
 
-              {/* Stock Alerts */}
-              <div className="group relative bg-gradient-to-br from-rose-500 to-orange-500 shadow-lg shadow-rose-200/50 rounded-2xl p-4 sm:p-5 hover:-translate-y-1 hover:shadow-xl hover:shadow-rose-300/50 transition-all duration-300 flex flex-col justify-between h-[130px] sm:h-[140px] overflow-hidden">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="flex items-start justify-between mb-2 relative z-10 gap-2">
-                  <div className="flex items-center space-x-2 text-white/90">
-                    <div className="p-1 sm:p-1.5 bg-white/20 backdrop-blur-sm text-white rounded-lg shrink-0">
-                      <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </div>
-                    <h2 className="text-xs sm:text-sm font-medium text-white tracking-wide leading-tight">Stock Alerts</h2>
-                  </div>
-                  {lowStockCount > 0 && (
-                    <span className="flex h-2 w-2 sm:h-2.5 sm:w-2.5 relative shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-full w-full bg-white"></span>
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-end justify-between relative z-10 mt-1">
-                  <div className="flex items-baseline space-x-1">
-                    <p className="text-lg sm:text-xl xl:text-2xl font-extrabold tracking-tight text-white drop-shadow-sm break-all sm:break-normal">{lowStockCount}</p>
-                    <span className="text-[10px] sm:text-[11px] text-white/80 font-medium">items</span>
-                  </div>
-                  <Link href="/inventory" className="text-[10px] sm:text-[11px] font-bold text-white hover:text-white/80 transition-colors flex items-center bg-white/20 backdrop-blur-sm px-2 py-1 rounded-lg hover:bg-white/30 shrink-0">
-                    Review <span className="ml-1 group-hover:translate-x-1 transition-transform">&rarr;</span>
-                  </Link>
-                </div>
-              </div>
+
             </div>
 
             {/* Recent Orders Section */}
